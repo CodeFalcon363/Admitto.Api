@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Admitto.Api/Admitto.Api.csproj" />
+  <Project Path="Admitto.Core/Admitto.Core.csproj" />
+  <Project Path="Admitto.Infrastructure/Admitto.Infrastructure.csproj" />
+</Solution>
