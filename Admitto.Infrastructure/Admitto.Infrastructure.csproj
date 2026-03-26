@@ -6,4 +6,22 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.14">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.14" />
+    <PackageReference Include="RestSharp" Version="114.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.12.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Admitto.Core\Admitto.Core.csproj" />
+  </ItemGroup>
+
 </Project>
