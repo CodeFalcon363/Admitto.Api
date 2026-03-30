@@ -7,6 +7,7 @@ namespace Admitto.Core.Entities
         public int Id { get; set; }
         public Guid OrganizerId { get; set; }
         public string Title { get; set; } = null!;
+        public string Slug { get; set; } = null!;
         public string Description { get; set; } = null!;
         public string Location { get; set; } = null!;
         public EventStatus Status{ get; set; }
