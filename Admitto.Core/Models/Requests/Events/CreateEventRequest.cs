@@ -1,13 +1,18 @@
-﻿namespace Admitto.Core.Models.Requests
+using System.ComponentModel.DataAnnotations;
+
+namespace Admitto.Core.Models.Requests.Events
 {
-    public class EventCreateRequest
+    public class CreateEventRequest
     {
+        [Required]
         public string Title { get; set; } = null!;
+        [Required]
         public string Description { get; set; } = null!;
+        [Required]
         public string Location { get; set; } = null!;
-        public EventStatus Status { get; set; }
+        [Required]
         public DateTime StartDate { get; set; }
+        [Required]
         public DateTime EndDate { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
