@@ -19,9 +19,21 @@ namespace Admitto.Infrastructure.Repositories
             return response;
         }
 
-        public async Task<Booking> CreateAsync(Booking booking)
+        public async Task<Booking?> GetByIdempotencyKeyAsync(string key)
+        {
+            return await _context.Bookings.FirstOrDefaultAsync(b => b.IdempotencyKey == key);
+        }
+
+        public async Task<Booking> CreateAsync(Booking booking, List<BookingItem> items)
         {
             await _context.Bookings.AddAsync(booking);
+            await _context.SaveChangesAsync();
+
+            foreach (var item in items)
+            {
+                item.BookingId = booking.Id;
+            }
+            await _context.BookingItems.AddRangeAsync(items);
             await _context.SaveChangesAsync();
             return booking;
         }

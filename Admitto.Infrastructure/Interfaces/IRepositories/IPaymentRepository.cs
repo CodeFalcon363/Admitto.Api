@@ -6,6 +6,7 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
     {
         Task<(IEnumerable<Payment>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize);
         Task<Payment?> GetByBookingIdAsync(int bookingId);
+        Task<Payment?> GetByReferenceAsync(string reference);
         Task<Payment?> GetByIdAsync(int id);
         Task<Payment> CreateAsync(Payment payment);
         Task<Payment?> UpdateAsync(Payment payment);

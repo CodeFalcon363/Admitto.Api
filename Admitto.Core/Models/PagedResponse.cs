@@ -1,6 +1,6 @@
 ﻿namespace Admitto.Core.Models
 {
-    public class PagedResponse<T> : ApiResponse<T>
+    public class PagedResponse<T> : ApiResponse<IEnumerable<T>>
     {
         public int PageNumber { get; set; }
         public int PageSize {  get; set; }

@@ -7,7 +7,8 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<(IEnumerable<Booking>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize);
         Task<(IEnumerable<Booking>, int totalRecords)> GetAllByUserIdAsync(Guid userId, int pageNumber, int pageSize);
         Task<Booking?> GetByIdAsync(int id);
-        Task<Booking> CreateAsync(Booking booking);
+        Task<Booking?> GetByIdempotencyKeyAsync(string key);
+        Task<Booking> CreateAsync(Booking booking, List<BookingItem> items);
         Task<Booking?> UpdateAsync(Booking booking);
         Task<bool> AnyAsync(int id);
         Task DeleteAsync(Booking booking);

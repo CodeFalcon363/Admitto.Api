@@ -46,6 +46,11 @@ namespace Admitto.Infrastructure.Repositories
             return (data, totalCount);
         }
 
+        public async Task<Payment?> GetByReferenceAsync(string reference)
+        {
+            return await _context.Payments.FirstOrDefaultAsync(e => e.PaymentReference == reference);
+        }
+
         public async Task<Payment?> GetByBookingIdAsync(int bookingId)
         {
             var response = await _context.Payments.FirstOrDefaultAsync(e => e.BookingId == bookingId);

@@ -8,7 +8,7 @@ namespace Admitto.Infrastructure.Interfaces.IServices
     {
         Task<ApiResponse<UserResponse>> RegisterAsync(RegisterUserRequest register);
         Task<ApiResponse<UserResponse>> LoginAsync(LoginRequest logins);
-        Task<ApiResponse<UserResponse>> RefreshTokenAsync(string refreshToken);
+        Task<ApiResponse<UserResponse>> RefreshTokenAsync(string expiredJwt, string refreshToken);
         Task<ApiResponse<bool>> RevokeTokenAsync(string refreshToken);
 
     }
