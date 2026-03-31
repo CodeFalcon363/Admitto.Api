@@ -2,7 +2,7 @@ using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.TicketTypes;
 using Admitto.Core.Models.Responses.TicketTypes;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface ITicketTypeService
     {

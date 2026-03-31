@@ -2,7 +2,7 @@
 using Admitto.Core.Models.Requests;
 using Admitto.Core.Models.Responses;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface IAuthService
     {

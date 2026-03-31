@@ -24,4 +24,8 @@
     <ProjectReference Include="..\Admitto.Core\Admitto.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Services\" />
+  </ItemGroup>
+
 </Project>

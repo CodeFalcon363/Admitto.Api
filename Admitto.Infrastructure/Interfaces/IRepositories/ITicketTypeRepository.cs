@@ -1,7 +1,7 @@
 ﻿using Admitto.Core.Entities;
 using Admitto.Core.Models;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IRepositories
 {
     public interface ITicketTypeRepository
     {

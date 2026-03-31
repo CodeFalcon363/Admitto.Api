@@ -1,4 +1,4 @@
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface INotificationService
     {

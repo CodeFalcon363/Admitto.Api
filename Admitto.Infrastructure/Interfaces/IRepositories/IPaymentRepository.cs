@@ -1,6 +1,6 @@
 ﻿using Admitto.Core.Entities;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IRepositories
 {
     public interface IPaymentRepository
     {

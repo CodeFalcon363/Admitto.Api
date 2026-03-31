@@ -2,7 +2,7 @@ using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Payments;
 using Admitto.Core.Models.Responses.Payments;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface IPaymentService
     {

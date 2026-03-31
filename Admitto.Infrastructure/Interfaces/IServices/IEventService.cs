@@ -2,7 +2,7 @@ using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Events;
 using Admitto.Core.Models.Responses.Events;
 
-namespace Admitto.Infrastructure.Interfaces
+namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface IEventService
     {
