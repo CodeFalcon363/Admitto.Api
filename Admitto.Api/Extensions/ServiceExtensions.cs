@@ -29,6 +29,8 @@ namespace Admitto.Api.Extensions
         {
             var redisMode = config.GetValue<string>("RedisSettings:Mode") ?? "Standalone";
 
+            var abortOnConnectFail = config.GetValue<bool>("RedisSettings:AbortOnConnectFail", defaultValue: true);
+
             services.AddSingleton<IConnectionMultiplexer>(_ =>
             {
                 if (redisMode.Equals("Sentinel", StringComparison.OrdinalIgnoreCase))
@@ -36,10 +38,13 @@ namespace Admitto.Api.Extensions
                     var sentinelName = config.GetValue<string>("RedisSettings:SentinelServiceName") ?? "mymaster";
                     var options = ConfigurationOptions.Parse(config.GetConnectionString("Redis")!);
                     options.ServiceName = sentinelName;
+                    options.AbortOnConnectFail = abortOnConnectFail;
                     return ConnectionMultiplexer.Connect(options);
                 }
 
-                return ConnectionMultiplexer.Connect(config.GetConnectionString("Redis")!);
+                var standaloneOptions = ConfigurationOptions.Parse(config.GetConnectionString("Redis")!);
+                standaloneOptions.AbortOnConnectFail = abortOnConnectFail;
+                return ConnectionMultiplexer.Connect(standaloneOptions);
             });
 
             services.AddScoped<ICacheService, CacheService>();
