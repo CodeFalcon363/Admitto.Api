@@ -1,4 +1,4 @@
-﻿using Admitto.Core.Data;
+using Admitto.Core.Data;
 using Admitto.Core.Entities;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +13,9 @@ namespace Admitto.Infrastructure.Repositories
         {
             _context = context;
         }
+
         public async Task<bool> AnyAsync(int id)
-        {
-            var response = await _context.TicketTypes.AnyAsync(e => e.Id == id);
-            return response;
-        }
+            => await _context.TicketTypes.AnyAsync(e => e.Id == id);
 
         public async Task<TicketType> CreateAsync(TicketType ticketType)
         {
@@ -28,8 +26,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(TicketType ticketType)
         {
-            var response = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
-            if(response)
+            var exists = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
+            if (exists)
             {
                 _context.TicketTypes.Remove(ticketType);
                 await _context.SaveChangesAsync();
@@ -72,23 +70,28 @@ namespace Admitto.Infrastructure.Repositories
         }
 
         public async Task<TicketType?> GetByIdAsync(int id)
-        {
-            var response = await _context.TicketTypes.FindAsync(id);
-            if (response == null)
-                return null;
-            return response;
-        }
+            => await _context.TicketTypes.FindAsync(id);
 
         public async Task<TicketType?> UpdateAsync(TicketType ticketType)
         {
-            var response = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
-            if (response == false)
-                return null;
+            var exists = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
+            if (!exists) return null;
             ticketType.UpdatedAt = DateTime.UtcNow;
             ticketType.UpdateCount++;
             _context.TicketTypes.Update(ticketType);
             await _context.SaveChangesAsync();
             return ticketType;
+        }
+
+        /// <summary>
+        /// Atomically decrements capacity only if sufficient stock exists.
+        /// Returns false if capacity is insufficient — prevents overselling under concurrent load.
+        /// </summary>
+        public async Task<bool> DecrementCapacityAsync(int ticketTypeId, int quantity)
+        {
+            var rowsAffected = await _context.Database.ExecuteSqlAsync(
+                $"UPDATE TicketTypes SET Capacity = Capacity - {quantity} WHERE Id = {ticketTypeId} AND Capacity >= {quantity}");
+            return rowsAffected > 0;
         }
     }
 }

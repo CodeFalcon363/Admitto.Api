@@ -1,4 +1,4 @@
-﻿using Admitto.Core.Data;
+using Admitto.Core.Data;
 using Admitto.Core.Entities;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +13,9 @@ namespace Admitto.Infrastructure.Repositories
         {
             _context = context;
         }
+
         public async Task<bool> AnyAsync(int id)
-        {
-            var response = await _context.Payments.AnyAsync(e => e.Id == id);
-            return response;
-        }
+            => await _context.Payments.AnyAsync(e => e.Id == id);
 
         public async Task<Payment> CreateAsync(Payment payment)
         {
@@ -28,8 +26,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(Payment payment)
         {
-            var response = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
-            if(response)
+            var exists = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
+            if (exists)
             {
                 _context.Payments.Remove(payment);
                 await _context.SaveChangesAsync();
@@ -47,37 +45,46 @@ namespace Admitto.Infrastructure.Repositories
         }
 
         public async Task<Payment?> GetByReferenceAsync(string reference)
-        {
-            return await _context.Payments.FirstOrDefaultAsync(e => e.PaymentReference == reference);
-        }
+            => await _context.Payments.FirstOrDefaultAsync(e => e.PaymentReference == reference);
 
         public async Task<Payment?> GetByBookingIdAsync(int bookingId)
-        {
-            var response = await _context.Payments.FirstOrDefaultAsync(e => e.BookingId == bookingId);
-            if (response == null)
-                return null;
-            return response;
-        }
+            => await _context.Payments.FirstOrDefaultAsync(e => e.BookingId == bookingId);
 
         public async Task<Payment?> GetByIdAsync(int id)
-        {
-            var response = await _context.Payments.FindAsync(id);
-            if(response == null)
-                return null;
-            return response;
-        }
+            => await _context.Payments.FindAsync(id);
 
         public async Task<Payment?> UpdateAsync(Payment payment)
         {
-            var response = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
-            if (response == false)
-                return null;
+            var exists = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
+            if (!exists) return null;
             payment.UpdatedAt = DateTime.UtcNow;
             payment.UpdateCount++;
             _context.Payments.Update(payment);
             await _context.SaveChangesAsync();
             return payment;
+        }
 
+        /// <summary>
+        /// Atomically creates a payment for a booking under Serializable isolation.
+        /// Prevents two concurrent requests from both inserting a payment for the same booking.
+        /// Returns (existing, false) if already exists, (new, true) if created.
+        /// </summary>
+        public async Task<(Payment payment, bool created)> GetOrCreateAsync(int bookingId, Payment newPayment)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+
+            var existing = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId);
+            if (existing != null)
+            {
+                await transaction.RollbackAsync();
+                return (existing, false);
+            }
+
+            _context.Payments.Add(newPayment);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return (newPayment, true);
         }
     }
 }
