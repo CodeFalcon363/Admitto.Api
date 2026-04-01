@@ -12,6 +12,7 @@ namespace Admitto.Core.Entities
         public int BookingId { get; set; }
         public PaymentStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
-
+        public DateTime? UpdatedAt { get; set; }
+        public int UpdateCount { get; set; } = 0;
     }
 }

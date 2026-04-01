@@ -8,6 +8,8 @@ namespace Admitto.Core.Entities
         public Guid UserId { get; set; }
         public BookingStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public int UpdateCount { get; set; } = 0;
         public string IdempotencyKey { get; set; } = null!;
 
     }
