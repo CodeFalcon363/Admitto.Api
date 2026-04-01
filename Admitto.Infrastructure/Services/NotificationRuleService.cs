@@ -40,7 +40,6 @@ namespace Admitto.Infrastructure.Services
             rule.UpdatedAt = DateTime.UtcNow;
 
             await _ruleRepository.UpdateAsync(rule);
-
             return new ApiResponse<NotificationRuleResponse>
             {
                 Success = true,

@@ -40,9 +40,17 @@ namespace Admitto.Infrastructure.Services
         {
             var ticketType = await _ticketTypeRepository.GetByIdAsync(id);
             if (ticketType == null)
-                return new ApiResponse<TicketTypeResponse> { Success = false, Message = ApiMessages.TicketTypeNotFound };
+                return new ApiResponse<TicketTypeResponse> 
+                { 
+                    Success = false,
+                    Message = ApiMessages.TicketTypeNotFound
+                };
 
-            return new ApiResponse<TicketTypeResponse> { Success = true, Data = _mapper.Map<TicketTypeResponse>(ticketType) };
+            return new ApiResponse<TicketTypeResponse> 
+            { 
+                Success = true,
+                Data = _mapper.Map<TicketTypeResponse>(ticketType)
+            };
         }
 
         public async Task<ApiResponse<TicketTypeResponse>> CreateAsync(CreateTicketTypeRequest request)
@@ -60,7 +68,11 @@ namespace Admitto.Infrastructure.Services
         {
             var ticketType = await _ticketTypeRepository.GetByIdAsync(id);
             if (ticketType == null)
-                return new ApiResponse<TicketTypeResponse> { Success = false, Message = ApiMessages.TicketTypeNotFound };
+                return new ApiResponse<TicketTypeResponse>
+                { 
+                    Success = false,
+                    Message = ApiMessages.TicketTypeNotFound
+                };
 
             var updated = await _ticketTypeRepository.UpdateAsync(ApplyUpdate(request, ticketType));
             return new ApiResponse<TicketTypeResponse>
@@ -75,10 +87,18 @@ namespace Admitto.Infrastructure.Services
         {
             var ticketType = await _ticketTypeRepository.GetByIdAsync(id);
             if (ticketType == null)
-                return new ApiResponse<bool> { Success = false, Message = ApiMessages.TicketTypeNotFound };
+                return new ApiResponse<bool>
+                { 
+                    Success = false,
+                    Message = ApiMessages.TicketTypeNotFound
+                };
 
             await _ticketTypeRepository.DeleteAsync(ticketType);
-            return new ApiResponse<bool> { Success = true, Message = ApiMessages.TicketTypeDeleted, Data = true };
+            return new ApiResponse<bool> 
+            { 
+                Success = true, 
+                Message = ApiMessages.TicketTypeDeleted, Data = true
+            };
         }
 
         private TicketType ApplyUpdate(UpdateTicketTypeRequest request, TicketType ticketType)

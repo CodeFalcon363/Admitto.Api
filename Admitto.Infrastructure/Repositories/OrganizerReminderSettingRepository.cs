@@ -19,18 +19,17 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task UpsertAsync(OrganizerReminderSetting setting)
         {
-            var existing = await _context.OrganizerReminderSettings
-                .FirstOrDefaultAsync(s => s.OrganizerId == setting.OrganizerId);
-
-            if (existing == null)
-                _context.OrganizerReminderSettings.Add(setting);
-            else
-            {
-                existing.ReminderHoursBefore = setting.ReminderHoursBefore;
-                existing.UpdatedAt = setting.UpdatedAt;
-            }
-
-            await _context.SaveChangesAsync();
+            await _context.Database.ExecuteSqlAsync(
+                $"""
+                MERGE INTO OrganizerReminderSettings WITH (HOLDLOCK) AS target
+                USING (VALUES ({setting.OrganizerId})) AS source (OrganizerId)
+                ON target.OrganizerId = source.OrganizerId
+                WHEN MATCHED THEN
+                    UPDATE SET ReminderHoursBefore = {setting.ReminderHoursBefore}, UpdatedAt = {setting.UpdatedAt}
+                WHEN NOT MATCHED THEN
+                    INSERT (OrganizerId, ReminderHoursBefore, UpdatedAt)
+                    VALUES ({setting.OrganizerId}, {setting.ReminderHoursBefore}, {setting.UpdatedAt});
+                """);
         }
     }
 }

@@ -19,18 +19,17 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task UpsertAsync(EventReminderOverride eventOverride)
         {
-            var existing = await _context.EventReminderOverrides
-                .FirstOrDefaultAsync(o => o.EventId == eventOverride.EventId);
-
-            if (existing == null)
-                _context.EventReminderOverrides.Add(eventOverride);
-            else
-            {
-                existing.ReminderHoursBefore = eventOverride.ReminderHoursBefore;
-                existing.UpdatedAt = eventOverride.UpdatedAt;
-            }
-
-            await _context.SaveChangesAsync();
+            await _context.Database.ExecuteSqlAsync(
+                $"""
+                MERGE INTO EventReminderOverrides WITH (HOLDLOCK) AS target
+                USING (VALUES ({eventOverride.EventId})) AS source (EventId)
+                ON target.EventId = source.EventId
+                WHEN MATCHED THEN
+                    UPDATE SET ReminderHoursBefore = {eventOverride.ReminderHoursBefore}, UpdatedAt = {eventOverride.UpdatedAt}
+                WHEN NOT MATCHED THEN
+                    INSERT (EventId, ReminderHoursBefore, UpdatedAt)
+                    VALUES ({eventOverride.EventId}, {eventOverride.ReminderHoursBefore}, {eventOverride.UpdatedAt});
+                """);
         }
     }
 }

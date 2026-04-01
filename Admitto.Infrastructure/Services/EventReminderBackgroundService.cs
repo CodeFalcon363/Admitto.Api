@@ -5,17 +5,23 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace Admitto.Infrastructure.Services
 {
     public class EventReminderBackgroundService : BackgroundService
     {
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IConnectionMultiplexer _redis;
         private readonly ILogger<EventReminderBackgroundService> _logger;
 
-        public EventReminderBackgroundService(IServiceScopeFactory scopeFactory, ILogger<EventReminderBackgroundService> logger)
+        private const string LockKey = "admitto:reminder_lock";
+        private static readonly TimeSpan LockExpiry = TimeSpan.FromMinutes(10);
+
+        public EventReminderBackgroundService(IServiceScopeFactory scopeFactory, IConnectionMultiplexer redis, ILogger<EventReminderBackgroundService> logger)
         {
             _scopeFactory = scopeFactory;
+            _redis = redis;
             _logger = logger;
         }
 
@@ -30,6 +36,16 @@ namespace Admitto.Infrastructure.Services
 
         private async Task RunReminderCheckAsync()
         {
+            var lockValue = Guid.NewGuid().ToString();
+            var db = _redis.GetDatabase();
+            var acquired = await db.StringSetAsync(LockKey, lockValue, LockExpiry, When.NotExists);
+
+            if (!acquired)
+            {
+                _logger.LogInformation("Reminder check skipped — another instance holds the lock");
+                return;
+            }
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -77,6 +93,12 @@ namespace Admitto.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "EventReminderBackgroundService encountered an error");
+            }
+            finally
+            {
+                // Release lock only if this instance still owns it
+                const string releaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+                await db.ScriptEvaluateAsync(releaseScript, new RedisKey[] { LockKey }, new RedisValue[] { lockValue });
             }
         }
     }

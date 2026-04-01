@@ -34,6 +34,7 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<IEnumerable<UserPreferenceResponse>>> GetMyPreferencesAsync(Guid userId)
         {
             var preferences = await _preferenceRepository.GetByUserAsync(userId);
+
             return new ApiResponse<IEnumerable<UserPreferenceResponse>>
             {
                 Success = true,
@@ -64,6 +65,7 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<int>> GetReminderSettingAsync(Guid organizerId)
         {
             var setting = await _organizerSettingRepository.GetByOrganizerAsync(organizerId);
+
             return new ApiResponse<int>
             {
                 Success = true,
@@ -82,17 +84,29 @@ namespace Admitto.Infrastructure.Services
 
             await _organizerSettingRepository.UpsertAsync(setting);
 
-            return new ApiResponse<object> { Success = true, Message = ApiMessages.ReminderHoursUpdated };
+            return new ApiResponse<object>
+            {
+                Success = true,
+                Message = ApiMessages.ReminderHoursUpdated
+            };
         }
 
         public async Task<ApiResponse<object>> SetEventReminderHoursAsync(Guid organizerId, int eventId, SetReminderHoursRequest request)
         {
             var ev = await _eventRepository.GetByIdAsync(eventId);
             if (ev == null)
-                return new ApiResponse<object> { Success = false, Message = ApiMessages.EventNotFound };
+                return new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = ApiMessages.EventNotFound
+                };
 
             if (ev.OrganizerId != organizerId)
-                return new ApiResponse<object> { Success = false, Message = ApiMessages.Unauthorized };
+                return new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = ApiMessages.Unauthorized
+                };
 
             var eventOverride = new EventReminderOverride
             {
@@ -103,7 +117,11 @@ namespace Admitto.Infrastructure.Services
 
             await _eventOverrideRepository.UpsertAsync(eventOverride);
 
-            return new ApiResponse<object> { Success = true, Message = ApiMessages.ReminderHoursUpdated };
+            return new ApiResponse<object>
+            {
+                Success = true,
+                Message = ApiMessages.ReminderHoursUpdated
+            };
         }
     }
 }

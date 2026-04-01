@@ -26,18 +26,18 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task UpsertAsync(UserNotificationPreference preference)
         {
-            var existing = await _context.UserNotificationPreferences
-                .FirstOrDefaultAsync(p => p.UserId == preference.UserId && p.TriggerType == preference.TriggerType);
-
-            if (existing == null)
-                _context.UserNotificationPreferences.Add(preference);
-            else
-            {
-                existing.IsEnabled = preference.IsEnabled;
-                existing.UpdatedAt = preference.UpdatedAt;
-            }
-
-            await _context.SaveChangesAsync();
+            var triggerType = (int)preference.TriggerType;
+            await _context.Database.ExecuteSqlAsync(
+                $"""
+                MERGE INTO UserNotificationPreferences WITH (HOLDLOCK) AS target
+                USING (VALUES ({preference.UserId}, {triggerType})) AS source (UserId, TriggerType)
+                ON target.UserId = source.UserId AND target.TriggerType = source.TriggerType
+                WHEN MATCHED THEN
+                    UPDATE SET IsEnabled = {preference.IsEnabled}, UpdatedAt = {preference.UpdatedAt}
+                WHEN NOT MATCHED THEN
+                    INSERT (UserId, TriggerType, IsEnabled, UpdatedAt)
+                    VALUES ({preference.UserId}, {triggerType}, {preference.IsEnabled}, {preference.UpdatedAt});
+                """);
         }
     }
 }
