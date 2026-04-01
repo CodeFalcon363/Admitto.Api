@@ -15,12 +15,12 @@ namespace Admitto.Api.Extensions
             services.AddHttpClient();
             services.AddHealthChecks()
                 .AddCheck<SqlHealthCheck>("sql-server", tags: ["startup", "ready"])
-                .AddTypeActivatedCheck<HttpHealthCheck>("paystack", tags: ["ready"],
-                    args: ["Paystack", paystackUrl])
-                .AddTypeActivatedCheck<HttpHealthCheck>("ticketmaster", tags: ["ready"],
-                    args: ["Ticketmaster", ticketmasterUrl])
-                .AddTypeActivatedCheck<HttpHealthCheck>("sendgrid", tags: ["ready"],
-                    args: ["SendGrid", notificationUrl]);
+                .AddTypeActivatedCheck<HttpHealthCheck>("paystack",
+                    HealthStatus.Unhealthy, ["ready"], "Paystack", paystackUrl)
+                .AddTypeActivatedCheck<HttpHealthCheck>("ticketmaster",
+                    HealthStatus.Unhealthy, ["ready"], "Ticketmaster", ticketmasterUrl)
+                .AddTypeActivatedCheck<HttpHealthCheck>("sendgrid",
+                    HealthStatus.Unhealthy, ["ready"], "SendGrid", notificationUrl);
 
             return services;
         }
