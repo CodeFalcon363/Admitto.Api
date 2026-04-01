@@ -1,4 +1,4 @@
-﻿using Admitto.Core.Entities;
+using Admitto.Core.Entities;
 using Admitto.Core.Models;
 
 namespace Admitto.Infrastructure.Interfaces.IRepositories
@@ -11,6 +11,7 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<TicketType?> GetByIdAsync(int id);
         Task<TicketType> CreateAsync(TicketType ticketType);
         Task<TicketType?> UpdateAsync(TicketType ticketType);
+        Task<bool> DecrementCapacityAsync(int ticketTypeId, int quantity);
         Task<bool> AnyAsync(int id);
         Task DeleteAsync(TicketType ticketType);
     }

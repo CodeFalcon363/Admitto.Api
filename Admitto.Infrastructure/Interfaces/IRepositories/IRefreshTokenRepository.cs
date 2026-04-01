@@ -7,5 +7,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<RefreshToken> CreateAsync(RefreshToken refreshToken);
         Task<RefreshToken?> GetByTokenAsync(string token);
         Task<RefreshToken?> UpdateAsync(RefreshToken refreshToken);
+        Task<bool> ConsumeAsync(string token);
     }
 }

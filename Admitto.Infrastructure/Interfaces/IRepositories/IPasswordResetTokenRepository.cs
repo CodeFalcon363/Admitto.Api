@@ -7,5 +7,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<PasswordResetToken> CreateAsync(PasswordResetToken token);
         Task<PasswordResetToken?> GetByTokenAsync(string token);
         Task UpdateAsync(PasswordResetToken token);
+        Task<bool> ConsumeAsync(string token);
     }
 }
