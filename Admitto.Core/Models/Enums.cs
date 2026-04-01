@@ -1,11 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Admitto.Core.Models
 {
+    public enum NotificationTrigger
+    {
+        BookingConfirmation = 0,
+        BookingCancellation = 1,
+        EventReminder = 2,
+        EventCreated = 3,
+        EventUpdated = 4,
+        EventDeleted = 5,
+        RoleChanged = 6,
+        ProfileUpdated = 7
+    }
+
+    public enum MediaType
+    {
+        Thumbnail = 0,
+        Gallery = 1
+    }
+
     public enum EventStatus
     {
         Draft = 0,
@@ -13,6 +25,7 @@ namespace Admitto.Core.Models
         Canceled = 2,
         Postponed = 3
     }
+
     public enum BookingStatus
     {
         Pending = 0,
@@ -21,6 +34,7 @@ namespace Admitto.Core.Models
         Canceled = 3,
         Refunded = 4
     }
+
     public enum PaymentStatus
     {
         Pending = 0,

@@ -10,6 +10,7 @@
         public const string TokenInvalid = "Invalid token.";
 
         //Events
+        public const string EventFound = "Event retrieved successfully.";
         public const string EventCreated = "Event created successfully.";
         public const string EventUpdated = "Event updated successfully.";
         public const string EventDeleted = "Event deleted successfully.";
@@ -35,6 +36,27 @@
         public const string PaymentFailed = "Payment processing failed.";
         public const string PaymentNotFound = "Payment not found.";
         public const string PaymentAlreadyProcessed = "Payment has already been processed.";
+
+        //Users
+        public const string ProfileUpdated = "Profile updated successfully.";
+        public const string RoleChanged = "User role updated successfully.";
+        public const string UserNotFound = "User not found.";
+        public const string InvalidRole = "Invalid role specified.";
+
+        //Password Reset
+        public const string PasswordResetEmailSent = "Password reset instructions have been sent to your email.";
+        public const string PasswordResetSuccess = "Password has been reset successfully.";
+
+        //Media
+        public const string MediaUploaded = "Media uploaded successfully.";
+        public const string MediaDeleted = "Media deleted successfully.";
+        public const string MediaNotFound = "Media not found.";
+
+        //Notification Rules
+        public const string NotificationRuleNotFound = "Notification rule not found.";
+        public const string NotificationRuleUpdated = "Notification rule updated successfully.";
+        public const string PreferenceUpdated = "Notification preference updated successfully.";
+        public const string ReminderHoursUpdated = "Reminder hours updated successfully.";
 
         //General
         public const string InternalServerError = "An unexpected error occurred. Please try again later.";
