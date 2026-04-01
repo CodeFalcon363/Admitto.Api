@@ -13,12 +13,14 @@ namespace Admitto.Infrastructure.Services
     public class EventService : IEventService
     {
         private readonly IEventRepository _eventRepository;
+        private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
         private readonly ILogger<EventService> _logger;
 
-        public EventService(IEventRepository eventRepository, IMapper mapper, ILogger<EventService> logger)
+        public EventService(IEventRepository eventRepository, INotificationService notificationService, IMapper mapper, ILogger<EventService> logger)
         {
             _eventRepository = eventRepository;
+            _notificationService = notificationService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -42,7 +44,7 @@ namespace Admitto.Infrastructure.Services
             if (ev == null)
                 return new ApiResponse<EventResponse> { Success = false, Message = ApiMessages.EventNotFound };
 
-            return new ApiResponse<EventResponse> { Success = true, Data = _mapper.Map<EventResponse>(ev) };
+            return new ApiResponse<EventResponse> { Success = true, Message = ApiMessages.EventFound, Data = _mapper.Map<EventResponse>(ev) };
         }
 
         public async Task<ApiResponse<EventResponse>> GetBySlugAsync(string slug)
@@ -51,12 +53,13 @@ namespace Admitto.Infrastructure.Services
             if (ev == null)
                 return new ApiResponse<EventResponse> { Success = false, Message = ApiMessages.EventNotFound };
 
-            return new ApiResponse<EventResponse> { Success = true, Data = _mapper.Map<EventResponse>(ev) };
+            return new ApiResponse<EventResponse> { Success = true, Message = ApiMessages.EventFound, Data = _mapper.Map<EventResponse>(ev) };
         }
 
         public async Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request)
         {
             var created = await _eventRepository.CreateAsync(MapToEntity(request));
+            await _notificationService.SendEventCreatedAsync(created.Id);
             return new ApiResponse<EventResponse>
             {
                 Success = true,
@@ -72,6 +75,7 @@ namespace Admitto.Infrastructure.Services
                 return new ApiResponse<EventResponse> { Success = false, Message = ApiMessages.EventNotFound };
 
             var updated = await _eventRepository.UpdateAsync(ApplyUpdate(request, ev));
+            await _notificationService.SendEventUpdatedAsync(ev.Id);
             return new ApiResponse<EventResponse>
             {
                 Success = true,
@@ -86,7 +90,10 @@ namespace Admitto.Infrastructure.Services
             if (ev == null)
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.EventNotFound };
 
+            var organizerId = ev.OrganizerId;
+            var title = ev.Title;
             await _eventRepository.DeleteAsync(ev);
+            await _notificationService.SendEventDeletedAsync(organizerId, title);
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.EventDeleted, Data = true };
         }
 

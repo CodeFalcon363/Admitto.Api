@@ -10,6 +10,7 @@ namespace Admitto.Infrastructure.Interfaces.IServices
         Task<ApiResponse<UserResponse>> LoginAsync(LoginRequest logins);
         Task<ApiResponse<UserResponse>> RefreshTokenAsync(string expiredJwt, string refreshToken);
         Task<ApiResponse<bool>> RevokeTokenAsync(string refreshToken);
-
+        Task<ApiResponse<bool>> ForgotPasswordAsync(string email);
+        Task<ApiResponse<bool>> ResetPasswordAsync(string token, string newPassword);
     }
 }

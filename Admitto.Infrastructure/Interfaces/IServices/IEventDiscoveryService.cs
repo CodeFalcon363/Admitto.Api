@@ -5,6 +5,6 @@ namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface IEventDiscoveryService
     {
-        Task<(PagedResponse<IEnumerable<ExternalEventResponse>>, int totalRecords)> SearchEventsAsync(string query, int pageNumber, int pageSize);
+        Task<PagedResponse<ExternalEventResponse>> SearchEventsAsync(string query, int pageNumber, int pageSize);
     }
 }

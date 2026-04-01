@@ -14,13 +14,15 @@ namespace Admitto.Infrastructure.Services
     {
         private readonly IBookingRepository _bookingRepository;
         private readonly ITicketTypeRepository _ticketTypeRepository;
+        private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
         private readonly ILogger<BookingService> _logger;
 
-        public BookingService(IBookingRepository bookingRepository, ITicketTypeRepository ticketTypeRepository, IMapper mapper, ILogger<BookingService> logger)
+        public BookingService(IBookingRepository bookingRepository, ITicketTypeRepository ticketTypeRepository, INotificationService notificationService, IMapper mapper, ILogger<BookingService> logger)
         {
             _bookingRepository = bookingRepository;
             _ticketTypeRepository = ticketTypeRepository;
+            _notificationService = notificationService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -58,6 +60,7 @@ namespace Admitto.Infrastructure.Services
                 return new ApiResponse<BookingResponse> { Success = false, Message = validationResult.Error };
 
             var created = await _bookingRepository.CreateAsync(_mapper.Map<Booking>(request), validationResult.Items);
+            await _notificationService.SendBookingConfirmationAsync(created.Id);
             return new ApiResponse<BookingResponse>
             {
                 Success = true,
@@ -73,6 +76,7 @@ namespace Admitto.Infrastructure.Services
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.BookingNotFound };
 
             await _bookingRepository.UpdateAsync(ApplyCancel(booking));
+            await _notificationService.SendCancellationAsync(id);
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.BookingCanceled, Data = true };
         }
 
