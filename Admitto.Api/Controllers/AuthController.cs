@@ -1,5 +1,6 @@
 using Admitto.Infrastructure.Interfaces.IServices;
 using Admitto.Core.Models.Requests;
+using Admitto.Core.Models.Requests.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,6 +43,20 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Revoke([FromBody] string refreshToken)
         {
             var result = await _authService.RevokeTokenAsync(refreshToken);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var result = await _authService.ForgotPasswordAsync(request.Email);
+            return Ok(result);
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
             return result.Success ? Ok(result) : BadRequest(result);
         }
     }
