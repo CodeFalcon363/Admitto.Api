@@ -106,19 +106,16 @@ namespace Admitto.Infrastructure.Services
                 if (ticketType == null)
                     return (items, ApiMessages.TicketTypeNotFound);
 
-                if (ticketType.Capacity == 0)
-                    return (items, ApiMessages.InsufficientCapacity);
-
-                if (ticketType.Capacity < item.Quantity)
-                    return (items, ApiMessages.InsufficientTickets);
-
                 if (ticketType.SaleEndDate.HasValue && ticketType.SaleEndDate < DateTime.UtcNow)
                     return (items, ApiMessages.TicketSalesEnded);
 
-                items.Add(BuildBookingItem(item.TicketTypeId, item.Quantity, ticketType.Price));
+                // Atomic decrement — prevents overselling under concurrent load.
+                // The SQL UPDATE checks Capacity >= quantity in the same statement.
+                var decremented = await _ticketTypeRepository.DecrementCapacityAsync(item.TicketTypeId, item.Quantity);
+                if (!decremented)
+                    return (items, ApiMessages.InsufficientTickets);
 
-                ticketType.Capacity -= item.Quantity;
-                await _ticketTypeRepository.UpdateAsync(ticketType);
+                items.Add(BuildBookingItem(item.TicketTypeId, item.Quantity, ticketType.Price));
             }
             return (items, null);
         }

@@ -31,20 +31,24 @@ namespace Admitto.Infrastructure.Services
             if (booking == null)
                 return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.BookingNotFound };
 
-            var existing = await _paymentRepository.GetByBookingIdAsync(request.BookingId);
-            if (existing != null)
+            // Serializable transaction prevents two concurrent requests from both inserting
+            // a payment for the same booking — one wins, the other gets the existing record.
+            var (payment, created) = await _paymentRepository.GetOrCreateAsync(
+                request.BookingId,
+                MapToPaymentEntity(request, booking.UserId));
+
+            if (!created)
             {
                 _logger.LogWarning("Duplicate payment initialization for booking {BookingId}", request.BookingId);
                 return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentAlreadyProcessed };
             }
 
-            var created = await _paymentRepository.CreateAsync(MapToPaymentEntity(request, booking.UserId));
-            _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}", created.Id, request.BookingId);
+            _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}", payment.Id, request.BookingId);
 
             return new ApiResponse<PaymentResponse>
             {
                 Success = true,
-                Data = _mapper.Map<PaymentResponse>(created)
+                Data = _mapper.Map<PaymentResponse>(payment)
             };
         }
 

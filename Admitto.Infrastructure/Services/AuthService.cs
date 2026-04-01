@@ -89,23 +89,29 @@ namespace Admitto.Infrastructure.Services
 
         public async Task<ApiResponse<UserResponse>> RefreshTokenAsync(string expiredJwt, string refreshToken)
         {
-            var response = await _refreshToken.GetByTokenAsync(refreshToken);
-            if (response == null || response.IsUsed || response.IsRevoked || response.ExpiresAt < DateTime.UtcNow)
+            var storedToken = await _refreshToken.GetByTokenAsync(refreshToken);
+            if (storedToken == null || storedToken.IsRevoked || storedToken.ExpiresAt < DateTime.UtcNow)
             {
                 _logger.LogWarning("Invalid or expired refresh token used");
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.InvalidCredentials };
             }
 
-            if (response.JwtId != GetJwtIdFromToken(expiredJwt))
+            if (storedToken.JwtId != GetJwtIdFromToken(expiredJwt))
             {
-                _logger.LogWarning("Refresh token JwtId mismatch for token {TokenId}", response.Id);
+                _logger.LogWarning("Refresh token JwtId mismatch for token {TokenId}", storedToken.Id);
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.TokenInvalid };
             }
 
-            response.IsUsed = true;
-            await _refreshToken.UpdateAsync(response);
+            // Atomic consume — only the first concurrent request wins.
+            // The SQL UPDATE checks IsUsed = 0 in the same statement.
+            var consumed = await _refreshToken.ConsumeAsync(refreshToken);
+            if (!consumed)
+            {
+                _logger.LogWarning("Refresh token replay attempt detected for token {TokenId}", storedToken.Id);
+                return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.TokenInvalid };
+            }
 
-            var user = await _user.GetByIdAsync(response.UserId);
+            var user = await _user.GetByIdAsync(storedToken.UserId);
             if (user == null)
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.NotFound };
 
@@ -168,9 +174,18 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<bool>> ResetPasswordAsync(string token, string newPassword)
         {
             var resetToken = await _passwordResetToken.GetByTokenAsync(token);
-            if (resetToken == null || resetToken.IsUsed || resetToken.ExpiresAt < DateTime.UtcNow)
+            if (resetToken == null || resetToken.ExpiresAt < DateTime.UtcNow)
             {
                 _logger.LogWarning("Invalid or expired password reset token used");
+                return new ApiResponse<bool> { Success = false, Message = ApiMessages.TokenInvalid };
+            }
+
+            // Atomic consume — only the first concurrent request wins.
+            // The SQL UPDATE checks IsUsed = 0 in the same statement.
+            var consumed = await _passwordResetToken.ConsumeAsync(token);
+            if (!consumed)
+            {
+                _logger.LogWarning("Password reset token replay attempt detected");
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.TokenInvalid };
             }
 
@@ -180,9 +195,6 @@ namespace Admitto.Infrastructure.Services
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             await _user.UpdateAsync(user);
-
-            resetToken.IsUsed = true;
-            await _passwordResetToken.UpdateAsync(resetToken);
 
             _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
 
