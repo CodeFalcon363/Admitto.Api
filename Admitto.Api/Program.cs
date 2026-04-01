@@ -12,7 +12,7 @@ builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddRedisCache(builder.Configuration);
 builder.Services.AddRepositories();
 builder.Services.AddSettings(builder.Configuration);
-builder.Services.AddS3(builder.Configuration);
+builder.Services.AddStorage(builder.Configuration);
 builder.Services.AddAppServices();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddMappings();
