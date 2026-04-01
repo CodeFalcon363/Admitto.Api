@@ -14,6 +14,7 @@ using Admitto.Core.Models.Responses.Payments;
 using Admitto.Core.Models.Responses.TicketTypes;
 using Admitto.Core.Models.Responses;
 using AutoMapper;
+using Admitto.Core.Models;
 
 namespace Admitto.Infrastructure.Mappings
 {
