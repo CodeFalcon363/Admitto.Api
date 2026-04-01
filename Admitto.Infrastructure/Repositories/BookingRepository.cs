@@ -19,6 +19,21 @@ namespace Admitto.Infrastructure.Repositories
             return response;
         }
 
+        public async Task<IEnumerable<Booking>> GetAllByEventSlugAsync(string eventSlug)
+        {
+            var bookingIds = await (
+                from bi in _context.BookingItems
+                join tt in _context.TicketTypes on bi.TicketTypeId equals tt.Id
+                join e in _context.Events on tt.EventId equals e.Id
+                where e.Slug == eventSlug
+                select bi.BookingId
+            ).Distinct().ToListAsync();
+
+            return await _context.Bookings
+                .Where(b => bookingIds.Contains(b.Id))
+                .ToListAsync();
+        }
+
         public async Task<Booking?> GetByIdempotencyKeyAsync(string key)
         {
             return await _context.Bookings.FirstOrDefaultAsync(b => b.IdempotencyKey == key);
@@ -83,6 +98,8 @@ namespace Admitto.Infrastructure.Repositories
             var response = await _context.Bookings.AnyAsync(e => e.Id == booking.Id);
             if (response == false)
                 return null;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdateCount++;
             _context.Bookings.Update(booking);
             await _context.SaveChangesAsync();
             return booking;

@@ -84,6 +84,8 @@ namespace Admitto.Infrastructure.Repositories
             var response = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
             if (response == false)
                 return null;
+            ticketType.UpdatedAt = DateTime.UtcNow;
+            ticketType.UpdateCount++;
             _context.TicketTypes.Update(ticketType);
             await _context.SaveChangesAsync();
             return ticketType;

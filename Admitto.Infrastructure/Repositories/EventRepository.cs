@@ -63,7 +63,9 @@ namespace Admitto.Infrastructure.Repositories
             var response = await _context.Events.AnyAsync(ev => ev.Id == e.Id);
             if (response == false)
                 return null;
-             _context.Events.Update(e);
+            e.UpdatedAt = DateTime.UtcNow;
+            e.UpdateCount++;
+            _context.Events.Update(e);
             await _context.SaveChangesAsync();
             return e;
         }

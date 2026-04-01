@@ -72,6 +72,8 @@ namespace Admitto.Infrastructure.Repositories
             var response = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
             if (response == false)
                 return null;
+            payment.UpdatedAt = DateTime.UtcNow;
+            payment.UpdateCount++;
             _context.Payments.Update(payment);
             await _context.SaveChangesAsync();
             return payment;
