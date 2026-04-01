@@ -38,16 +38,17 @@ namespace Admitto.Infrastructure.Services
         {
             var lockValue = Guid.NewGuid().ToString();
             var db = _redis.GetDatabase();
-            var acquired = await db.StringSetAsync(LockKey, lockValue, LockExpiry, When.NotExists);
-
-            if (!acquired)
-            {
-                _logger.LogInformation("Reminder check skipped — another instance holds the lock");
-                return;
-            }
+            var lockAcquired = false;
 
             try
             {
+                lockAcquired = await db.StringSetAsync(LockKey, lockValue, LockExpiry, When.NotExists);
+                if (!lockAcquired)
+                {
+                    _logger.LogInformation("Reminder check skipped — another instance holds the lock");
+                    return;
+                }
+
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AdmittoDbContext>();
                 var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
@@ -90,15 +91,25 @@ namespace Admitto.Infrastructure.Services
                 if (dueEvents.Any(d => d.Event.ReminderSentAt != null))
                     await context.SaveChangesAsync();
             }
+            catch (RedisConnectionException ex)
+            {
+                _logger.LogWarning(ex, "Redis unavailable — skipping reminder check, lock will expire naturally");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "EventReminderBackgroundService encountered an error");
             }
             finally
             {
-                // Release lock only if this instance still owns it
-                const string releaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
-                await db.ScriptEvaluateAsync(releaseScript, new RedisKey[] { LockKey }, new RedisValue[] { lockValue });
+                if (lockAcquired)
+                {
+                    try
+                    {
+                        const string releaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+                        await db.ScriptEvaluateAsync(releaseScript, new RedisKey[] { LockKey }, new RedisValue[] { lockValue });
+                    }
+                    catch (RedisConnectionException) { /* Redis went down between acquire and release — lock expires naturally */ }
+                }
             }
         }
     }

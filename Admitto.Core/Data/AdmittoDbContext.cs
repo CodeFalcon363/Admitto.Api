@@ -25,6 +25,18 @@ namespace Admitto.Core.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Entities.BookingItem>()
+                .Property(b => b.UnitPrice)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Entities.Payment>()
+                .Property(p => p.Amount)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Entities.TicketType>()
+                .Property(t => t.Price)
+                .HasPrecision(18, 2);
+
             var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
             modelBuilder.Entity<Entities.NotificationRule>().HasData(
