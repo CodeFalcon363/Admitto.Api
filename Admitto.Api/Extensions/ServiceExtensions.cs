@@ -147,7 +147,7 @@ namespace Admitto.Api.Extensions
 
         public static IServiceCollection AddMappings(this IServiceCollection services)
         {
-            services.AddAutoMapper(typeof(MappingProfile));
+            services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
             return services;
         }
     }
