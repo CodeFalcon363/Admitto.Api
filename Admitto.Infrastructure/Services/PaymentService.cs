@@ -33,9 +33,14 @@ namespace Admitto.Infrastructure.Services
 
             var existing = await _paymentRepository.GetByBookingIdAsync(request.BookingId);
             if (existing != null)
+            {
+                _logger.LogWarning("Duplicate payment initialization for booking {BookingId}", request.BookingId);
                 return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentAlreadyProcessed };
+            }
 
             var created = await _paymentRepository.CreateAsync(MapToPaymentEntity(request, booking.UserId));
+            _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}", created.Id, request.BookingId);
+
             return new ApiResponse<PaymentResponse>
             {
                 Success = true,
@@ -47,7 +52,12 @@ namespace Admitto.Infrastructure.Services
         {
             var payment = await _paymentRepository.GetByReferenceAsync(reference);
             if (payment == null)
+            {
+                _logger.LogWarning("Payment not found for reference {Reference}", reference);
                 return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentNotFound };
+            }
+
+            _logger.LogInformation("Payment verified: {PaymentId}", payment.Id);
 
             return new ApiResponse<PaymentResponse>
             {

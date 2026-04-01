@@ -41,6 +41,7 @@ namespace Admitto.Infrastructure.Services
 
             _mapper.Map(request, user);
             await _userRepository.UpdateAsync(user);
+            _logger.LogInformation("Profile updated for user {UserId}", userId);
             await _notificationService.SendProfileUpdatedAsync(userId);
 
             return new ApiResponse<UserResponse>
@@ -58,10 +59,14 @@ namespace Admitto.Infrastructure.Services
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.UserNotFound };
 
             if (request.Role != Roles.Admin && request.Role != Roles.Organizer && request.Role != Roles.Attendee)
+            {
+                _logger.LogWarning("Invalid role specified for user {UserId}: {Role}", userId, request.Role);
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.InvalidRole };
+            }
 
             user.Role = request.Role;
             await _userRepository.UpdateAsync(user);
+            _logger.LogInformation("Role changed for user {UserId} to {Role}", userId, request.Role);
 
             if (request.Role == Roles.Organizer)
                 await _notificationService.SendRoleChangedAsync(userId);

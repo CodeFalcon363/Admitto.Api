@@ -59,6 +59,7 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request)
         {
             var created = await _eventRepository.CreateAsync(MapToEntity(request));
+            _logger.LogInformation("Event created: {EventId} - {Title}", created.Id, created.Title);
             await _notificationService.SendEventCreatedAsync(created.Id);
             return new ApiResponse<EventResponse>
             {
@@ -72,9 +73,13 @@ namespace Admitto.Infrastructure.Services
         {
             var ev = await _eventRepository.GetBySlugAsync(slug);
             if (ev == null)
+            {
+                _logger.LogWarning("Update attempted on non-existent event {Slug}", slug);
                 return new ApiResponse<EventResponse> { Success = false, Message = ApiMessages.EventNotFound };
+            }
 
             var updated = await _eventRepository.UpdateAsync(ApplyUpdate(request, ev));
+            _logger.LogInformation("Event updated: {EventId}", updated.Id);
             await _notificationService.SendEventUpdatedAsync(ev.Id);
             return new ApiResponse<EventResponse>
             {
@@ -88,11 +93,15 @@ namespace Admitto.Infrastructure.Services
         {
             var ev = await _eventRepository.GetByIdAsync(id);
             if (ev == null)
+            {
+                _logger.LogWarning("Delete attempted on non-existent event {EventId}", id);
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.EventNotFound };
+            }
 
             var organizerId = ev.OrganizerId;
             var title = ev.Title;
             await _eventRepository.DeleteAsync(ev);
+            _logger.LogInformation("Event deleted: {Title} by organizer {OrganizerId}", title, organizerId);
             await _notificationService.SendEventDeletedAsync(organizerId, title);
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.EventDeleted, Data = true };
         }

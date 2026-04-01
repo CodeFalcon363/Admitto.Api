@@ -41,15 +41,17 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<UserResponse>> LoginAsync(LoginRequest request)
         {
             var user = await _user.GetByEmailAsync(request.Email);
-            if (user == null)
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Failed login attempt for email {Email}", request.Email);
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.InvalidCredentials };
-
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.InvalidCredentials };
+            }
 
             var token = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken(user.Id, token.JwtId);
             await _refreshToken.CreateAsync(refreshToken);
+
+            _logger.LogInformation("User {UserId} logged in", user.Id);
 
             var userResponse = _mapper.Map<UserResponse>(user);
             userResponse.Token = token.Value;
@@ -62,7 +64,10 @@ namespace Admitto.Infrastructure.Services
         {
             var exists = await _user.AnyAsync(register.Email);
             if (exists)
+            {
+                _logger.LogWarning("Registration attempted for existing email {Email}", register.Email);
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.UserAlreadyExists };
+            }
 
             var user = _mapper.Map<User>(register);
             user.Id = Guid.NewGuid();
@@ -71,6 +76,8 @@ namespace Admitto.Infrastructure.Services
             user.CreatedAt = DateTime.UtcNow;
 
             await _user.CreateAsync(user);
+
+            _logger.LogInformation("User registered: {UserId}", user.Id);
 
             return new ApiResponse<UserResponse>
             {
@@ -83,14 +90,17 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<UserResponse>> RefreshTokenAsync(string expiredJwt, string refreshToken)
         {
             var response = await _refreshToken.GetByTokenAsync(refreshToken);
-            if (response == null)
+            if (response == null || response.IsUsed || response.IsRevoked || response.ExpiresAt < DateTime.UtcNow)
+            {
+                _logger.LogWarning("Invalid or expired refresh token used");
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.InvalidCredentials };
-
-            if (response.IsUsed || response.IsRevoked || response.ExpiresAt < DateTime.UtcNow)
-                return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.InvalidCredentials };
+            }
 
             if (response.JwtId != GetJwtIdFromToken(expiredJwt))
+            {
+                _logger.LogWarning("Refresh token JwtId mismatch for token {TokenId}", response.Id);
                 return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.TokenInvalid };
+            }
 
             response.IsUsed = true;
             await _refreshToken.UpdateAsync(response);
@@ -103,6 +113,8 @@ namespace Admitto.Infrastructure.Services
             var newRefreshToken = GenerateRefreshToken(user.Id, newToken.JwtId);
             await _refreshToken.CreateAsync(newRefreshToken);
 
+            _logger.LogInformation("Token refreshed for user {UserId}", user.Id);
+
             var userResponse = _mapper.Map<UserResponse>(user);
             userResponse.Token = newToken.Value;
             userResponse.RefreshToken = newRefreshToken.Token;
@@ -114,10 +126,15 @@ namespace Admitto.Infrastructure.Services
         {
             var storedToken = await _refreshToken.GetByTokenAsync(refreshToken);
             if (storedToken == null)
+            {
+                _logger.LogWarning("Attempted to revoke non-existent refresh token");
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.TokenInvalid };
+            }
 
             storedToken.IsRevoked = true;
             await _refreshToken.UpdateAsync(storedToken);
+
+            _logger.LogInformation("Refresh token revoked for user {UserId}", storedToken.UserId);
 
             return new ApiResponse<bool> { Success = true, Data = true };
         }
@@ -125,9 +142,11 @@ namespace Admitto.Infrastructure.Services
         public async Task<ApiResponse<bool>> ForgotPasswordAsync(string email)
         {
             var user = await _user.GetByEmailAsync(email);
-            // Don't reveal whether the email exists — always return success
             if (user == null)
+            {
+                _logger.LogWarning("Password reset requested for unknown email");
                 return new ApiResponse<bool> { Success = true, Message = ApiMessages.PasswordResetEmailSent, Data = true };
+            }
 
             var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
             await _passwordResetToken.CreateAsync(new PasswordResetToken
@@ -140,6 +159,9 @@ namespace Admitto.Infrastructure.Services
             });
 
             await _notificationService.SendPasswordResetAsync(user.Email, user.FirstName, token);
+
+            _logger.LogInformation("Password reset token issued for user {UserId}", user.Id);
+
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.PasswordResetEmailSent, Data = true };
         }
 
@@ -147,7 +169,10 @@ namespace Admitto.Infrastructure.Services
         {
             var resetToken = await _passwordResetToken.GetByTokenAsync(token);
             if (resetToken == null || resetToken.IsUsed || resetToken.ExpiresAt < DateTime.UtcNow)
+            {
+                _logger.LogWarning("Invalid or expired password reset token used");
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.TokenInvalid };
+            }
 
             var user = await _user.GetByIdAsync(resetToken.UserId);
             if (user == null)
@@ -158,6 +183,8 @@ namespace Admitto.Infrastructure.Services
 
             resetToken.IsUsed = true;
             await _passwordResetToken.UpdateAsync(resetToken);
+
+            _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
 
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.PasswordResetSuccess, Data = true };
         }
