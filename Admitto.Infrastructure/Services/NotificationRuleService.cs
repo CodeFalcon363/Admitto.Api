@@ -33,13 +33,18 @@ namespace Admitto.Infrastructure.Services
         {
             var rule = await _ruleRepository.GetByIdAsync(id);
             if (rule == null)
-                return new ApiResponse<NotificationRuleResponse> { Success = false, Message = ApiMessages.NotificationRuleNotFound };
+                return new ApiResponse<NotificationRuleResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.NotificationRuleNotFound
+                };
 
             rule.IsEnabled = request.IsEnabled;
             rule.ReminderHoursBefore = request.ReminderHoursBefore;
             rule.UpdatedAt = DateTime.UtcNow;
 
             await _ruleRepository.UpdateAsync(rule);
+
             return new ApiResponse<NotificationRuleResponse>
             {
                 Success = true,

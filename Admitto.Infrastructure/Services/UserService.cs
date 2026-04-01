@@ -28,16 +28,28 @@ namespace Admitto.Infrastructure.Services
         {
             var user = await _userRepository.GetByIdAsync(id);
             if (user == null)
-                return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.UserNotFound };
+                return new ApiResponse<UserResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UserNotFound
+                };
 
-            return new ApiResponse<UserResponse> { Success = true, Data = _mapper.Map<UserResponse>(user) };
+            return new ApiResponse<UserResponse>
+            {
+                Success = true,
+                Data = _mapper.Map<UserResponse>(user)
+            };
         }
 
         public async Task<ApiResponse<UserResponse>> UpdateProfileAsync(Guid userId, UpdateUserRequest request)
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
-                return new ApiResponse<UserResponse> { Success = false, Message = ApiMessages.UserNotFound };
+                return new ApiResponse<UserResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UserNotFound
+                };
 
             _mapper.Map(request, user);
             await _userRepository.UpdateAsync(user);
@@ -56,12 +68,20 @@ namespace Admitto.Infrastructure.Services
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
-                return new ApiResponse<bool> { Success = false, Message = ApiMessages.UserNotFound };
+                return new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = ApiMessages.UserNotFound
+                };
 
             if (request.Role != Roles.Admin && request.Role != Roles.Organizer && request.Role != Roles.Attendee)
             {
                 _logger.LogWarning("Invalid role specified for user {UserId}: {Role}", userId, request.Role);
-                return new ApiResponse<bool> { Success = false, Message = ApiMessages.InvalidRole };
+                return new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = ApiMessages.InvalidRole
+                };
             }
 
             user.Role = request.Role;
@@ -71,7 +91,12 @@ namespace Admitto.Infrastructure.Services
             if (request.Role == Roles.Organizer)
                 await _notificationService.SendRoleChangedAsync(userId);
 
-            return new ApiResponse<bool> { Success = true, Message = ApiMessages.RoleChanged, Data = true };
+            return new ApiResponse<bool>
+            {
+                Success = true,
+                Message = ApiMessages.RoleChanged,
+                Data = true
+            };
         }
     }
 }

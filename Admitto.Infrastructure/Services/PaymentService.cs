@@ -29,7 +29,11 @@ namespace Admitto.Infrastructure.Services
         {
             var booking = await _bookingRepository.GetByIdAsync(request.BookingId);
             if (booking == null)
-                return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.BookingNotFound };
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.BookingNotFound
+                };
 
             // Serializable transaction prevents two concurrent requests from both inserting
             // a payment for the same booking — one wins, the other gets the existing record.
@@ -40,7 +44,11 @@ namespace Admitto.Infrastructure.Services
             if (!created)
             {
                 _logger.LogWarning("Duplicate payment initialization for booking {BookingId}", request.BookingId);
-                return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentAlreadyProcessed };
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.PaymentAlreadyProcessed
+                };
             }
 
             _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}", payment.Id, request.BookingId);
@@ -58,7 +66,11 @@ namespace Admitto.Infrastructure.Services
             if (payment == null)
             {
                 _logger.LogWarning("Payment not found for reference {Reference}", reference);
-                return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentNotFound };
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.PaymentNotFound
+                };
             }
 
             _logger.LogInformation("Payment verified: {PaymentId}", payment.Id);
@@ -75,9 +87,17 @@ namespace Admitto.Infrastructure.Services
         {
             var payment = await _paymentRepository.GetByIdAsync(id);
             if (payment == null)
-                return new ApiResponse<PaymentResponse> { Success = false, Message = ApiMessages.PaymentNotFound };
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.PaymentNotFound
+                };
 
-            return new ApiResponse<PaymentResponse> { Success = true, Data = _mapper.Map<PaymentResponse>(payment) };
+            return new ApiResponse<PaymentResponse>
+            {
+                Success = true,
+                Data = _mapper.Map<PaymentResponse>(payment)
+            };
         }
 
         private Payment MapToPaymentEntity(InitializePaymentRequest request, Guid userId)

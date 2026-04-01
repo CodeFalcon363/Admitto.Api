@@ -30,6 +30,7 @@ namespace Admitto.Infrastructure.Services
         public async Task<PagedResponse<BookingResponse>> GetAllByUserIdAsync(Guid userId, int pageNumber, int pageSize)
         {
             var (data, totalRecords) = await _bookingRepository.GetAllByUserIdAsync(userId, pageNumber, pageSize);
+
             return new PagedResponse<BookingResponse>
             {
                 Success = true,
@@ -44,9 +45,17 @@ namespace Admitto.Infrastructure.Services
         {
             var booking = await _bookingRepository.GetByIdAsync(id);
             if (booking == null)
-                return new ApiResponse<BookingResponse> { Success = false, Message = ApiMessages.BookingNotFound };
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.BookingNotFound
+                };
 
-            return new ApiResponse<BookingResponse> { Success = true, Data = _mapper.Map<BookingResponse>(booking) };
+            return new ApiResponse<BookingResponse>
+            {
+                Success = true,
+                Data = _mapper.Map<BookingResponse>(booking)
+            };
         }
 
         public async Task<ApiResponse<BookingResponse>> CreateAsync(CreateBookingRequest request)
@@ -55,19 +64,28 @@ namespace Admitto.Infrastructure.Services
             if (existingBooking != null)
             {
                 _logger.LogInformation("Duplicate booking request detected for idempotency key {Key}", request.IdempotencyKey);
-                return new ApiResponse<BookingResponse> { Success = true, Data = _mapper.Map<BookingResponse>(existingBooking) };
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = true,
+                    Data = _mapper.Map<BookingResponse>(existingBooking)
+                };
             }
 
             var validationResult = await ValidateAndBuildItems(request);
             if (validationResult.Error != null)
             {
                 _logger.LogWarning("Booking validation failed: {Reason}", validationResult.Error);
-                return new ApiResponse<BookingResponse> { Success = false, Message = validationResult.Error };
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = false,
+                    Message = validationResult.Error
+                };
             }
 
             var created = await _bookingRepository.CreateAsync(_mapper.Map<Booking>(request), validationResult.Items);
             _logger.LogInformation("Booking created: {BookingId}", created.Id);
             await _notificationService.SendBookingConfirmationAsync(created.Id);
+
             return new ApiResponse<BookingResponse>
             {
                 Success = true,
@@ -82,13 +100,23 @@ namespace Admitto.Infrastructure.Services
             if (booking == null)
             {
                 _logger.LogWarning("Cancel attempted on non-existent booking {BookingId}", id);
-                return new ApiResponse<bool> { Success = false, Message = ApiMessages.BookingNotFound };
+                return new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = ApiMessages.BookingNotFound
+                };
             }
 
             await _bookingRepository.UpdateAsync(ApplyCancel(booking));
             _logger.LogInformation("Booking {BookingId} canceled", id);
             await _notificationService.SendCancellationAsync(id);
-            return new ApiResponse<bool> { Success = true, Message = ApiMessages.BookingCanceled, Data = true };
+
+            return new ApiResponse<bool>
+            {
+                Success = true,
+                Message = ApiMessages.BookingCanceled,
+                Data = true
+            };
         }
 
         private Booking ApplyCancel(Booking booking)
