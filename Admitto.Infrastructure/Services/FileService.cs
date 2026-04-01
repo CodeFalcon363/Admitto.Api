@@ -32,7 +32,7 @@ namespace Admitto.Infrastructure.Services
             return $"{_settings.BaseUrl}/uploads/{folder}/{uniqueFileName}";
         }
 
-        public void Delete(string fileUrl)
+        public Task DeleteAsync(string fileUrl)
         {
             var relativePath = fileUrl.Replace(_settings.BaseUrl, string.Empty).TrimStart('/');
             var fullPath = Path.Combine(_settings.UploadPath, relativePath.Replace("uploads/", string.Empty));
@@ -45,6 +45,7 @@ namespace Admitto.Infrastructure.Services
             {
                 _logger.LogWarning("Delete requested for non-existent file: {FilePath}", fullPath);
             }
+            return Task.CompletedTask;
         }
     }
 }

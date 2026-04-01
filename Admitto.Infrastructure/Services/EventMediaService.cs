@@ -70,7 +70,7 @@ namespace Admitto.Infrastructure.Services
             if (media == null)
                 return new ApiResponse<bool> { Success = false, Message = ApiMessages.MediaNotFound };
 
-            _fileService.Delete(media.Url);
+            await _fileService.DeleteAsync(media.Url);
             await _eventMediaRepository.DeleteAsync(media);
             return new ApiResponse<bool> { Success = true, Message = ApiMessages.MediaDeleted, Data = true };
         }
