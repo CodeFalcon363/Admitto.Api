@@ -5,9 +5,11 @@ using Admitto.Infrastructure.Interfaces.IServices;
 using Admitto.Infrastructure.Mappings;
 using Admitto.Infrastructure.Repositories;
 using Admitto.Infrastructure.Services;
-using Microsoft.Extensions.DependencyInjection;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using System.Text;
@@ -25,6 +27,8 @@ namespace Admitto.Api.Extensions
 
         public static IServiceCollection AddRedisCache(this IServiceCollection services, IConfiguration config)
         {
+            // Supports both standalone and Sentinel.
+            // Sentinel connection string format: "sentinel1:26379,sentinel2:26379,sentinel3:26379,serviceName=mymaster"
             services.AddSingleton<IConnectionMultiplexer>(_ =>
                 ConnectionMultiplexer.Connect(config.GetConnectionString("Redis")!));
             services.AddScoped<ICacheService, CacheService>();
@@ -59,7 +63,7 @@ namespace Admitto.Api.Extensions
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IEventDiscoveryService, EventDiscoveryService>();
             services.AddScoped<IEventMediaService, EventMediaService>();
-            services.AddScoped<IFileService, FileService>();
+            services.AddScoped<IFileService, S3FileService>();
             services.AddScoped<INotificationResolver, NotificationResolver>();
             services.AddScoped<INotificationRuleService, NotificationRuleService>();
             services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
@@ -101,6 +105,20 @@ namespace Admitto.Api.Extensions
             services.Configure<TicketmasterSettings>(config.GetSection("TicketmasterSettings"));
             services.Configure<NotificationSettings>(config.GetSection("NotificationSettings"));
             services.Configure<FileSettings>(config.GetSection("FileSettings"));
+            services.Configure<S3Settings>(config.GetSection("S3Settings"));
+            return services;
+        }
+
+        public static IServiceCollection AddS3(this IServiceCollection services, IConfiguration config)
+        {
+            services.AddSingleton<IAmazonS3>(sp =>
+            {
+                var settings = sp.GetRequiredService<IOptions<S3Settings>>().Value;
+                return new AmazonS3Client(
+                    settings.AccessKey,
+                    settings.SecretKey,
+                    Amazon.RegionEndpoint.GetBySystemName(settings.Region));
+            });
             return services;
         }
 
