@@ -5,6 +5,7 @@ using Admitto.Infrastructure.Interfaces.IServices;
 using Admitto.Infrastructure.Mappings;
 using Admitto.Infrastructure.Repositories;
 using Admitto.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -38,16 +39,31 @@ namespace Admitto.Api.Extensions
             services.AddScoped<IBookingRepository, BookingRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<IEventMediaRepository, EventMediaRepository>();
+            services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+            services.AddScoped<INotificationRuleRepository, NotificationRuleRepository>();
+            services.AddScoped<IUserNotificationPreferenceRepository, UserNotificationPreferenceRepository>();
+            services.AddScoped<IEventReminderOverrideRepository, EventReminderOverrideRepository>();
+            services.AddScoped<IOrganizerReminderSettingRepository, OrganizerReminderSettingRepository>();
             return services;
         }
 
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IUserService, UserService>();
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ITicketTypeService, TicketTypeService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IEventDiscoveryService, EventDiscoveryService>();
+            services.AddScoped<IEventMediaService, EventMediaService>();
+            services.AddScoped<IFileService, FileService>();
+            services.AddScoped<INotificationResolver, NotificationResolver>();
+            services.AddScoped<INotificationRuleService, NotificationRuleService>();
+            services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+            services.AddHostedService<EventReminderBackgroundService>();
             return services;
         }
 
@@ -84,6 +100,7 @@ namespace Admitto.Api.Extensions
             services.Configure<PaystackSettings>(config.GetSection("PaystackSettings"));
             services.Configure<TicketmasterSettings>(config.GetSection("TicketmasterSettings"));
             services.Configure<NotificationSettings>(config.GetSection("NotificationSettings"));
+            services.Configure<FileSettings>(config.GetSection("FileSettings"));
             return services;
         }
 
