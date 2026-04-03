@@ -31,7 +31,7 @@ namespace Admitto.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<ApiResponse<EventMediaResponse>> UploadAsync(int eventId, Stream fileStream, string fileName, MediaType type)
+        public async Task<ApiResponse<EventMediaResponse>> UploadAsync(int eventId, Stream fileStream, string fileName, MediaType type, Guid? callerUserId = null)
         {
             var ev = await _eventRepository.GetByIdAsync(eventId);
             if (ev == null)
@@ -39,6 +39,13 @@ namespace Admitto.Infrastructure.Services
                 {
                     Success = false,
                     Message = ApiMessages.EventNotFound
+                };
+
+            if (callerUserId.HasValue && ev.OrganizerId != callerUserId.Value)
+                return new ApiResponse<EventMediaResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
                 };
 
             var url = await _fileService.SaveAsync(fileStream, fileName, "events");
@@ -69,7 +76,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<bool>> DeleteAsync(int id)
+        public async Task<ApiResponse<bool>> DeleteAsync(int id, Guid? callerUserId = null)
         {
             var media = await _eventMediaRepository.GetByIdAsync(id);
             if (media == null)
@@ -78,6 +85,17 @@ namespace Admitto.Infrastructure.Services
                     Success = false,
                     Message = ApiMessages.MediaNotFound
                 };
+
+            if (callerUserId.HasValue)
+            {
+                var ev = await _eventRepository.GetByIdAsync(media.EventId);
+                if (ev == null || ev.OrganizerId != callerUserId.Value)
+                    return new ApiResponse<bool>
+                    {
+                        Success = false,
+                        Message = ApiMessages.UnauthorizedAccess
+                    };
+            }
 
             await _fileService.DeleteAsync(media.Url);
             await _eventMediaRepository.DeleteAsync(media);

@@ -5,8 +5,8 @@ namespace Admitto.Infrastructure.Interfaces.IServices
 {
     public interface IEventMediaService
     {
-        Task<ApiResponse<EventMediaResponse>> UploadAsync(int eventId, Stream fileStream, string fileName, MediaType type);
+        Task<ApiResponse<EventMediaResponse>> UploadAsync(int eventId, Stream fileStream, string fileName, MediaType type, Guid? callerUserId = null);
         Task<ApiResponse<IEnumerable<EventMediaResponse>>> GetByEventIdAsync(int eventId);
-        Task<ApiResponse<bool>> DeleteAsync(int id);
+        Task<ApiResponse<bool>> DeleteAsync(int id, Guid? callerUserId = null);
     }
 }
