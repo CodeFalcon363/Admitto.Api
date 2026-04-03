@@ -2,9 +2,11 @@ using Admitto.Core.Constants;
 using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Bookings;
 using Admitto.Core.Models.Responses.Bookings;
+using Admitto.Infrastructure.Data;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Admitto.Infrastructure.Services
@@ -112,7 +114,28 @@ namespace Admitto.Infrastructure.Services
             var booking = _mapper.Map<Core.Entities.Booking>(request);
             booking.UserId = userId;
 
-            var (created, error) = await _bookingRepository.CreateTransactionalAsync(booking, lineItems);
+            (Core.Entities.Booking? created, string? error) result;
+            try
+            {
+                result = await _bookingRepository.CreateTransactionalAsync(booking, lineItems);
+            }
+            catch (DbUpdateException ex) when (DbExceptionHelper.IsDuplicateKey(ex))
+            {
+                // Two concurrent requests with the same idempotency key both passed the
+                // pre-check. IX_Bookings_IdempotencyKey rejected the second insert — fetch
+                // and return the first booking that won the race.
+                _logger.LogInformation(
+                    "Concurrent duplicate booking detected for idempotency key {Key} — returning existing",
+                    request.IdempotencyKey);
+                var existing = await _bookingRepository.GetByIdempotencyKeyAsync(request.IdempotencyKey);
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = true,
+                    Data = _mapper.Map<BookingResponse>(existing)
+                };
+            }
+
+            var (created, error) = result;
             if (created == null)
             {
                 _logger.LogWarning("Booking creation failed in transaction: {Reason}", error);
@@ -124,7 +147,7 @@ namespace Admitto.Infrastructure.Services
             }
 
             _logger.LogInformation("Booking created: {BookingId} for user {UserId}", created.Id, userId);
-            await _notificationService.SendBookingConfirmationAsync(created.Id);
+            _ = Task.Run(() => _notificationService.SendBookingConfirmationAsync(created.Id));
 
             return new ApiResponse<BookingResponse>
             {
@@ -160,7 +183,7 @@ namespace Admitto.Infrastructure.Services
             booking.Status = BookingStatus.Canceled;
             await _bookingRepository.UpdateAsync(booking);
             _logger.LogInformation("Booking {BookingId} canceled", id);
-            await _notificationService.SendCancellationAsync(id);
+            _ = Task.Run(() => _notificationService.SendCancellationAsync(id));
 
             return new ApiResponse<bool>
             {
@@ -173,19 +196,23 @@ namespace Admitto.Infrastructure.Services
         /// <summary>
         /// Validates business rules for each line item (existence, sale window) and returns
         /// the priced line items. Does NOT touch capacity — the repository owns that atomically.
+        /// All ticket types are loaded in a single WHERE IN query to avoid N+1.
         /// </summary>
         private async Task<(List<BookingLineItem> Items, string? Error)> ValidateAndBuildLineItemsAsync(
             CreateBookingRequest request)
         {
+            var requestedIds = request.Items.Select(i => i.TicketTypeId);
+            var ticketMap = await _ticketTypeRepository.GetByIdsAsync(requestedIds);
+
             var lineItems = new List<BookingLineItem>();
+            var now = DateTime.UtcNow;
 
             foreach (var item in request.Items)
             {
-                var ticketType = await _ticketTypeRepository.GetByIdAsync(item.TicketTypeId);
-                if (ticketType == null)
+                if (!ticketMap.TryGetValue(item.TicketTypeId, out var ticketType))
                     return (lineItems, ApiMessages.TicketTypeNotFound);
 
-                if (ticketType.SaleEndDate.HasValue && ticketType.SaleEndDate < DateTime.UtcNow)
+                if (ticketType.SaleEndDate.HasValue && ticketType.SaleEndDate < now)
                     return (lineItems, ApiMessages.TicketSalesEnded);
 
                 lineItems.Add(new BookingLineItem(item.TicketTypeId, item.Quantity, ticketType.Price));

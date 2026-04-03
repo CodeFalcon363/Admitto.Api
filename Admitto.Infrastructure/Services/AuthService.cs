@@ -4,9 +4,11 @@ using Admitto.Core.Models;
 using Admitto.Core.Models.Requests;
 using Admitto.Core.Models.Responses;
 using Admitto.Core.Settings;
+using Admitto.Infrastructure.Data;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -43,7 +45,12 @@ namespace Admitto.Infrastructure.Services
             var user = await _user.GetByEmailAsync(request.Email);
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                _logger.LogWarning("Failed login attempt for email {Email}", request.Email);
+                // Log only a truncated identifier — never the raw email — to avoid creating
+                // a queryable PII index of all addresses that have been attempted.
+                var masked = request.Email.Length > 3
+                    ? request.Email[..3] + "***"
+                    : "***";
+                _logger.LogWarning("Failed login attempt for email {MaskedEmail}", masked);
                 return new ApiResponse<UserResponse>
                 {
                     Success = false,
@@ -71,8 +78,8 @@ namespace Admitto.Infrastructure.Services
 
         public async Task<ApiResponse<UserResponse>> RegisterAsync(RegisterUserRequest register)
         {
-            var exists = await _user.AnyAsync(register.Email);
-            if (exists)
+            var exists = await _user.GetByEmailAsync(register.Email);
+            if (exists != null)
             {
                 _logger.LogWarning("Registration attempted for existing email {Email}", register.Email);
                 return new ApiResponse<UserResponse>
@@ -88,7 +95,22 @@ namespace Admitto.Infrastructure.Services
             user.Role = Roles.Attendee;
             user.CreatedAt = DateTime.UtcNow;
 
-            await _user.CreateAsync(user);
+            try
+            {
+                await _user.CreateAsync(user);
+            }
+            catch (DbUpdateException ex) when (DbExceptionHelper.IsDuplicateKey(ex))
+            {
+                // Two concurrent registrations with the same email both passed the pre-check.
+                // The unique index on IX_Users_Email rejected the second insert — return the
+                // same conflict response instead of letting a 500 reach the client.
+                _logger.LogWarning("Concurrent duplicate registration for email — unique index rejected insert");
+                return new ApiResponse<UserResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UserAlreadyExists
+                };
+            }
 
             _logger.LogInformation("User registered: {UserId}", user.Id);
 

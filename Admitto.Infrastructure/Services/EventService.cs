@@ -3,9 +3,11 @@ using Admitto.Core.Entities;
 using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Events;
 using Admitto.Core.Models.Responses.Events;
+using Admitto.Infrastructure.Data;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
@@ -83,9 +85,24 @@ namespace Admitto.Infrastructure.Services
             var ev = await MapToEntityAsync(request);
             ev.OrganizerId = organizerId;
 
-            var created = await _eventRepository.CreateAsync(ev);
+            Event created;
+            try
+            {
+                created = await _eventRepository.CreateAsync(ev);
+            }
+            catch (DbUpdateException ex) when (DbExceptionHelper.IsDuplicateKey(ex))
+            {
+                // Two concurrent creates with identical titles raced through GenerateUniqueSlugAsync
+                // and both tried to insert the same slug. IX_Events_Slug rejected the second one.
+                // Regenerate a fresh unique slug and retry once — a second collision is astronomically
+                // unlikely and would be caught by the outer exception handler as a 500.
+                _logger.LogWarning("Slug collision on concurrent event create for title {Title} — retrying with new slug", request.Title);
+                ev.Slug = await GenerateUniqueSlugAsync(request.Title);
+                created = await _eventRepository.CreateAsync(ev);
+            }
+
             _logger.LogInformation("Event created: {EventId} - {Title}", created.Id, created.Title);
-            await _notificationService.SendEventCreatedAsync(created.Id);
+            _ = Task.Run(() => _notificationService.SendEventCreatedAsync(created.Id));
 
             return new ApiResponse<EventResponse>
             {
@@ -119,8 +136,8 @@ namespace Admitto.Infrastructure.Services
             }
 
             var updated = await _eventRepository.UpdateAsync(ApplyUpdate(request, ev));
-            _logger.LogInformation("Event updated: {EventId}", updated.Id);
-            await _notificationService.SendEventUpdatedAsync(ev.Id);
+            _logger.LogInformation("Event updated: {EventId}", updated!.Id);
+            _ = Task.Run(() => _notificationService.SendEventUpdatedAsync(ev.Id));
 
             return new ApiResponse<EventResponse>
             {
@@ -147,7 +164,7 @@ namespace Admitto.Infrastructure.Services
             var title = ev.Title;
             await _eventRepository.DeleteAsync(ev);
             _logger.LogInformation("Event deleted: {Title} by organizer {OrganizerId}", title, organizerId);
-            await _notificationService.SendEventDeletedAsync(organizerId, title);
+            _ = Task.Run(() => _notificationService.SendEventDeletedAsync(organizerId, title));
 
             return new ApiResponse<bool>
             {

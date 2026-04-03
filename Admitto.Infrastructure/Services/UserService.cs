@@ -54,7 +54,7 @@ namespace Admitto.Infrastructure.Services
             _mapper.Map(request, user);
             await _userRepository.UpdateAsync(user);
             _logger.LogInformation("Profile updated for user {UserId}", userId);
-            await _notificationService.SendProfileUpdatedAsync(userId);
+            _ = Task.Run(() => _notificationService.SendProfileUpdatedAsync(userId));
 
             return new ApiResponse<UserResponse>
             {
@@ -89,7 +89,7 @@ namespace Admitto.Infrastructure.Services
             _logger.LogInformation("Role changed for user {UserId} to {Role}", userId, request.Role);
 
             if (request.Role == Roles.Organizer)
-                await _notificationService.SendRoleChangedAsync(userId);
+                _ = Task.Run(() => _notificationService.SendRoleChangedAsync(userId));
 
             return new ApiResponse<bool>
             {

@@ -30,13 +30,13 @@ namespace Admitto.Infrastructure.Services
         {
             try
             {
-                // Build URL with query string. ApiKey is in config — not logged in structured logs.
+                // API key is injected as a header by TicketmasterApiKeyHandler — never in the URL
+                // so it does not appear in web server access logs or reverse-proxy logs.
                 var qs = HttpUtility.ParseQueryString(string.Empty);
-                qs["apikey"]  = _settings.ApiKey;
                 qs["keyword"] = query;
                 qs["page"]    = (pageNumber - 1).ToString(); // Ticketmaster pages are 0-indexed
                 qs["size"]    = pageSize.ToString();
-                var url = $"{_settings.BaseUrl}/discovery/v2/events.json?{qs}";
+                var url = $"{_settings.BaseUrl}/events.json?{qs}";
 
                 using var response = await _httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
