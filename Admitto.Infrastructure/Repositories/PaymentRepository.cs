@@ -26,12 +26,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(Payment payment)
         {
-            var exists = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
-            if (exists)
-            {
-                _context.Payments.Remove(payment);
-                await _context.SaveChangesAsync();
-            }
+            _context.Payments.Remove(payment);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<(IEnumerable<Payment>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize)
@@ -55,8 +51,6 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task<Payment?> UpdateAsync(Payment payment)
         {
-            var exists = await _context.Payments.AnyAsync(e => e.Id == payment.Id);
-            if (!exists) return null;
             payment.UpdatedAt = DateTime.UtcNow;
             payment.UpdateCount++;
             _context.Payments.Update(payment);

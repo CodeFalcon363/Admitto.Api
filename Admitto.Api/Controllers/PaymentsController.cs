@@ -1,8 +1,11 @@
 using Admitto.Core.Constants;
+using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Payments;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
@@ -18,26 +21,38 @@ namespace Admitto.Api.Controllers
             _paymentService = paymentService;
         }
 
-        [Authorize(Roles = Roles.Attendee)]
+        // Admin is included so they can initialize payment for a booking they created.
+        [Authorize(Roles = $"{Roles.Attendee},{Roles.Admin}")]
         [HttpPost("initialize")]
         public async Task<IActionResult> Initialize([FromBody] InitializePaymentRequest request)
         {
-            var result = await _paymentService.InitializeAsync(request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var result = await _paymentService.InitializeAsync(request, callerUserId);
+            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
+                ? Forbid()
+                : BadRequest(result);
         }
 
         [HttpGet("verify/{reference}")]
         public async Task<IActionResult> Verify(string reference)
         {
-            var result = await _paymentService.VerifyAsync(reference);
-            return result.Success ? Ok(result) : NotFound(result);
+            var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var isAdmin = User.IsInRole(Roles.Admin);
+            var result = await _paymentService.VerifyAsync(reference, callerUserId, isAdmin);
+            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
+                ? Forbid()
+                : NotFound(result);
         }
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var result = await _paymentService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var isAdmin = User.IsInRole(Roles.Admin);
+            var result = await _paymentService.GetByIdAsync(id, callerUserId, isAdmin);
+            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
+                ? Forbid()
+                : NotFound(result);
         }
     }
 }

@@ -17,7 +17,11 @@ namespace Admitto.Infrastructure.Services
         private readonly IMapper _mapper;
         private readonly ILogger<PaymentService> _logger;
 
-        public PaymentService(IPaymentRepository paymentRepository, IBookingRepository bookingRepository, IMapper mapper, ILogger<PaymentService> logger)
+        public PaymentService(
+            IPaymentRepository paymentRepository,
+            IBookingRepository bookingRepository,
+            IMapper mapper,
+            ILogger<PaymentService> logger)
         {
             _paymentRepository = paymentRepository;
             _bookingRepository = bookingRepository;
@@ -25,9 +29,10 @@ namespace Admitto.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<ApiResponse<PaymentResponse>> InitializeAsync(InitializePaymentRequest request)
+        public async Task<ApiResponse<PaymentResponse>> InitializeAsync(InitializePaymentRequest request, Guid callerUserId)
         {
-            var booking = await _bookingRepository.GetByIdAsync(request.BookingId);
+            // Load booking with items so we can calculate the authoritative total.
+            var booking = await _bookingRepository.GetByIdWithItemsAsync(request.BookingId);
             if (booking == null)
                 return new ApiResponse<PaymentResponse>
                 {
@@ -35,11 +40,21 @@ namespace Admitto.Infrastructure.Services
                     Message = ApiMessages.BookingNotFound
                 };
 
+            // Only the booking owner can initialize payment.
+            if (booking.UserId != callerUserId)
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
+                };
+
+            var amount = booking.Items.Sum(i => i.UnitPrice * i.Quantity);
+
             // Serializable transaction prevents two concurrent requests from both inserting
             // a payment for the same booking — one wins, the other gets the existing record.
             var (payment, created) = await _paymentRepository.GetOrCreateAsync(
                 request.BookingId,
-                MapToPaymentEntity(request, booking.UserId));
+                BuildPaymentEntity(request, booking.UserId, amount));
 
             if (!created)
             {
@@ -51,7 +66,8 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}", payment.Id, request.BookingId);
+            _logger.LogInformation("Payment initialized: {PaymentId} for booking {BookingId}, amount {Amount}",
+                payment.Id, request.BookingId, amount);
 
             return new ApiResponse<PaymentResponse>
             {
@@ -60,7 +76,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<PaymentResponse>> VerifyAsync(string reference)
+        public async Task<ApiResponse<PaymentResponse>> VerifyAsync(string reference, Guid callerUserId, bool isAdmin)
         {
             var payment = await _paymentRepository.GetByReferenceAsync(reference);
             if (payment == null)
@@ -73,6 +89,13 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
+            if (!isAdmin && payment.UserId != callerUserId)
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
+                };
+
             _logger.LogInformation("Payment verified: {PaymentId}", payment.Id);
 
             return new ApiResponse<PaymentResponse>
@@ -83,7 +106,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<PaymentResponse>> GetByIdAsync(int id)
+        public async Task<ApiResponse<PaymentResponse>> GetByIdAsync(int id, Guid callerUserId, bool isAdmin)
         {
             var payment = await _paymentRepository.GetByIdAsync(id);
             if (payment == null)
@@ -93,6 +116,13 @@ namespace Admitto.Infrastructure.Services
                     Message = ApiMessages.PaymentNotFound
                 };
 
+            if (!isAdmin && payment.UserId != callerUserId)
+                return new ApiResponse<PaymentResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
+                };
+
             return new ApiResponse<PaymentResponse>
             {
                 Success = true,
@@ -100,10 +130,11 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        private Payment MapToPaymentEntity(InitializePaymentRequest request, Guid userId)
+        private Payment BuildPaymentEntity(InitializePaymentRequest request, Guid userId, decimal amount)
         {
             var payment = _mapper.Map<Payment>(request);
             payment.UserId = userId;
+            payment.Amount = amount;
             payment.PaymentReference = Guid.NewGuid().ToString();
             return payment;
         }
