@@ -10,7 +10,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<User?> GetByEmailAsync(string email);
         Task<User> CreateAsync(User user);
         Task<User?> UpdateAsync(User user);
-        Task<bool> AnyAsync(string email);
         Task DeleteAsync(User user);
     }
 }

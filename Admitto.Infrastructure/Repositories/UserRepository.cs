@@ -13,12 +13,6 @@ namespace Admitto.Infrastructure.Repositories
         {
             _context = context;
         }
-        public async Task<bool> AnyAsync(string email)
-        {
-            var response = await _context.Users.AnyAsync(u => u.Email == email);
-            return response;
-        }
-
         public async Task<User> CreateAsync(User user)
         {
             await _context.Users.AddAsync(user);
@@ -36,28 +30,24 @@ namespace Admitto.Infrastructure.Repositories
         {
             var totalCount = await _context.Users.CountAsync();
             var data = await _context.Users
+                .AsNoTracking()
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
             return (data, totalCount);
-
         }
 
         public async Task<User?> GetByEmailAsync(string email)
-        {
-            var response = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-            if(response == null)
-                return null;
-            return response;
-        }
+            => await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
 
         public async Task<User?> GetByIdAsync(Guid id)
-            => await _context.Users.FindAsync(id);
+            => await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
 
         public async Task<IReadOnlyDictionary<Guid, User>> GetByIdsAsync(IEnumerable<Guid> ids)
         {
             var idList = ids.Distinct().ToList();
             return await _context.Users
+                .AsNoTracking()
                 .Where(u => idList.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id);
         }

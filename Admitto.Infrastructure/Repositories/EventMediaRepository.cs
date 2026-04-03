@@ -21,15 +21,14 @@ namespace Admitto.Infrastructure.Repositories
             return media;
         }
 
-        public async Task<EventMedia?> GetByIdAsync(int id)
-        {
-            return await _context.EventMedia.FindAsync(id);
-        }
+        public Task<EventMedia?> GetByIdAsync(int id)
+            => _context.EventMedia.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
 
         public async Task<IEnumerable<EventMedia>> GetAllByEventIdAsync(int eventId)
-        {
-            return await _context.EventMedia.Where(m => m.EventId == eventId).ToListAsync();
-        }
+            => await _context.EventMedia
+                .AsNoTracking()
+                .Where(m => m.EventId == eventId)
+                .ToListAsync();
 
         public async Task DeleteAsync(EventMedia media)
         {

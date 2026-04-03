@@ -1,4 +1,5 @@
 ﻿using Admitto.Core.Entities;
+using Admitto.Core.Models;
 
 namespace Admitto.Infrastructure.Interfaces.IRepositories
 {
@@ -17,7 +18,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         /// </summary>
         Task<(Booking? booking, string? error)> CreateTransactionalAsync(Booking booking, List<BookingLineItem> items);
         Task<Booking?> UpdateAsync(Booking booking);
-        Task<bool> AnyAsync(int id);
         Task DeleteAsync(Booking booking);
     }
 }

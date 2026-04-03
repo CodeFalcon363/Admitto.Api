@@ -14,9 +14,6 @@ namespace Admitto.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<bool> AnyAsync(int id)
-            => await _context.TicketTypes.AnyAsync(e => e.Id == id);
-
         public async Task<TicketType> CreateAsync(TicketType ticketType)
         {
             await _context.TicketTypes.AddAsync(ticketType);
@@ -34,6 +31,7 @@ namespace Admitto.Infrastructure.Repositories
         {
             var totalCount = await _context.TicketTypes.CountAsync();
             var data = await _context.TicketTypes
+                .AsNoTracking()
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -44,6 +42,7 @@ namespace Admitto.Infrastructure.Repositories
         {
             var totalCount = await _context.TicketTypes.CountAsync(e => e.EventId == eventId);
             var data = await _context.TicketTypes
+                .AsNoTracking()
                 .Where(e => e.EventId == eventId)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
@@ -53,10 +52,10 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task<(IEnumerable<TicketType>, int totalRecords)> GetAllByEventSlugAsync(string eventSlug, int pageNumber, int pageSize)
         {
-            var query = from t in _context.TicketTypes
-                        join e in _context.Events on t.EventId equals e.Id
-                        where e.Slug == eventSlug
-                        select t;
+            var query = (from t in _context.TicketTypes
+                         join e in _context.Events on t.EventId equals e.Id
+                         where e.Slug == eventSlug
+                         select t).AsNoTracking();
             var totalCount = await query.CountAsync();
             var data = await query
                 .Skip((pageNumber - 1) * pageSize)
@@ -65,8 +64,17 @@ namespace Admitto.Infrastructure.Repositories
             return (data, totalCount);
         }
 
-        public async Task<TicketType?> GetByIdAsync(int id)
-            => await _context.TicketTypes.FindAsync(id);
+        public Task<TicketType?> GetByIdAsync(int id)
+            => _context.TicketTypes.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+
+        public async Task<IReadOnlyDictionary<int, TicketType>> GetByIdsAsync(IEnumerable<int> ids)
+        {
+            var idList = ids.Distinct().ToList();
+            return await _context.TicketTypes
+                .AsNoTracking()
+                .Where(t => idList.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id);
+        }
 
         public async Task<TicketType?> UpdateAsync(TicketType ticketType)
         {

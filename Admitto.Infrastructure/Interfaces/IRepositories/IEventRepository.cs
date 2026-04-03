@@ -10,7 +10,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<bool> SlugExistsAsync(string slug);
         Task<Event> CreateAsync(Event e);
         Task<Event?> UpdateAsync(Event e);
-        Task<bool> AnyAsync(int id);
         Task DeleteAsync(Event e);
     }
 }

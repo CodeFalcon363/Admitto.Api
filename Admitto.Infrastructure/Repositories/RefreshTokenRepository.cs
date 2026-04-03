@@ -21,8 +21,8 @@ namespace Admitto.Infrastructure.Repositories
             return refreshToken;
         }
 
-        public async Task<RefreshToken?> GetByTokenAsync(string token)
-            => await _context.RefreshTokens.FirstOrDefaultAsync(r => r.Token == token);
+        public Task<RefreshToken?> GetByTokenAsync(string token)
+            => _context.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.Token == token);
 
         public async Task<RefreshToken?> UpdateAsync(RefreshToken refreshToken)
         {

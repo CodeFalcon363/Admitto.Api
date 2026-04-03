@@ -16,13 +16,13 @@ namespace Admitto.Infrastructure.Repositories
         }
 
         public async Task<IEnumerable<NotificationRule>> GetAllAsync()
-            => await _context.NotificationRules.ToListAsync();
+            => await _context.NotificationRules.AsNoTracking().ToListAsync();
 
-        public async Task<NotificationRule?> GetByIdAsync(int id)
-            => await _context.NotificationRules.FirstOrDefaultAsync(r => r.Id == id);
+        public Task<NotificationRule?> GetByIdAsync(int id)
+            => _context.NotificationRules.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
 
-        public async Task<NotificationRule?> GetByTriggerAsync(NotificationTrigger trigger)
-            => await _context.NotificationRules.FirstOrDefaultAsync(r => r.TriggerType == trigger);
+        public Task<NotificationRule?> GetByTriggerAsync(NotificationTrigger trigger)
+            => _context.NotificationRules.AsNoTracking().FirstOrDefaultAsync(r => r.TriggerType == trigger);
 
         public async Task UpdateAsync(NotificationRule rule)
         {

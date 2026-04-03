@@ -13,12 +13,6 @@ namespace Admitto.Infrastructure.Repositories
         {
             _context = context;
         }
-        public async Task<bool> AnyAsync(int id)
-        {
-            var response = await _context.Events.AnyAsync(e => e.Id == id);
-            return response;
-        }
-
         public async Task<Event> CreateAsync(Event e)
         {
             await _context.Events.AddAsync(e);
@@ -36,20 +30,18 @@ namespace Admitto.Infrastructure.Repositories
         {
             var totalCount = await _context.Events.CountAsync();
             var data = await _context.Events
+                .AsNoTracking()
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
             return (data, totalCount);
         }
 
-        public async Task<Event?> GetByIdAsync(int id)
-        {
-            var response = await _context.Events.FindAsync(id);
-            return response;
-        }
+        public Task<Event?> GetByIdAsync(int id)
+            => _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
 
         public Task<Event?> GetBySlugAsync(string slug)
-            => _context.Events.FirstOrDefaultAsync(e => e.Slug == slug);
+            => _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Slug == slug);
 
         public Task<bool> SlugExistsAsync(string slug)
             => _context.Events.AnyAsync(e => e.Slug == slug);

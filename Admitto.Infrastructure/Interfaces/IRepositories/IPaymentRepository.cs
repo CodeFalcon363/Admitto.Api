@@ -11,7 +11,6 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         Task<Payment> CreateAsync(Payment payment);
         Task<(Payment payment, bool created)> GetOrCreateAsync(int bookingId, Payment newPayment);
         Task<Payment?> UpdateAsync(Payment payment);
-        Task<bool> AnyAsync(int id);
         Task DeleteAsync(Payment payment);
     }
 }

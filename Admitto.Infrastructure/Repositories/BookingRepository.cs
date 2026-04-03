@@ -16,9 +16,6 @@ namespace Admitto.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<bool> AnyAsync(int id)
-            => await _context.Bookings.AnyAsync(b => b.Id == id);
-
         public async Task<IEnumerable<Booking>> GetAllByEventSlugAsync(string eventSlug)
         {
             // Single JOIN query — avoids the two-round-trip + large IN-clause pattern.
@@ -29,16 +26,17 @@ namespace Admitto.Infrastructure.Repositories
                 join e in _context.Events on tt.EventId equals e.Id
                 where e.Slug == eventSlug
                 select b
-            ).Distinct().ToListAsync();
+            ).AsNoTracking().Distinct().ToListAsync();
         }
 
-        public async Task<Booking?> GetByIdempotencyKeyAsync(string key)
-            => await _context.Bookings.FirstOrDefaultAsync(b => b.IdempotencyKey == key);
+        public Task<Booking?> GetByIdempotencyKeyAsync(string key)
+            => _context.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.IdempotencyKey == key);
 
         public async Task<(IEnumerable<Booking>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize)
         {
             var totalCount = await _context.Bookings.CountAsync();
             var data = await _context.Bookings
+                .AsNoTracking()
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -49,6 +47,7 @@ namespace Admitto.Infrastructure.Repositories
         {
             var totalCount = await _context.Bookings.CountAsync(b => b.UserId == userId);
             var data = await _context.Bookings
+                .AsNoTracking()
                 .Where(b => b.UserId == userId)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
@@ -56,11 +55,12 @@ namespace Admitto.Infrastructure.Repositories
             return (data, totalCount);
         }
 
-        public async Task<Booking?> GetByIdAsync(int id)
-            => await _context.Bookings.FindAsync(id);
+        public Task<Booking?> GetByIdAsync(int id)
+            => _context.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id);
 
-        public async Task<Booking?> GetByIdWithItemsAsync(int id)
-            => await _context.Bookings
+        public Task<Booking?> GetByIdWithItemsAsync(int id)
+            => _context.Bookings
+                .AsNoTracking()
                 .Include(b => b.Items)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
