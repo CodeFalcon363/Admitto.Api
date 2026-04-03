@@ -1,3 +1,4 @@
+using Admitto.Core.Constants;
 using Admitto.Core.Models.Requests.Payments;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ namespace Admitto.Api.Controllers
             _paymentService = paymentService;
         }
 
+        [Authorize(Roles = Roles.Attendee)]
         [HttpPost("initialize")]
         public async Task<IActionResult> Initialize([FromBody] InitializePaymentRequest request)
         {

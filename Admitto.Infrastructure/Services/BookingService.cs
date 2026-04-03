@@ -27,6 +27,20 @@ namespace Admitto.Infrastructure.Services
             _logger = logger;
         }
 
+        public async Task<PagedResponse<BookingResponse>> GetAllAsync(int pageNumber, int pageSize)
+        {
+            var (data, totalRecords) = await _bookingRepository.GetAllAsync(pageNumber, pageSize);
+
+            return new PagedResponse<BookingResponse>
+            {
+                Success = true,
+                Data = _mapper.Map<IEnumerable<BookingResponse>>(data),
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords
+            };
+        }
+
         public async Task<PagedResponse<BookingResponse>> GetAllByUserIdAsync(Guid userId, int pageNumber, int pageSize)
         {
             var (data, totalRecords) = await _bookingRepository.GetAllByUserIdAsync(userId, pageNumber, pageSize);
@@ -41,7 +55,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<BookingResponse>> GetByIdAsync(int id)
+        public async Task<ApiResponse<BookingResponse>> GetByIdAsync(int id, Guid? callerUserId = null)
         {
             var booking = await _bookingRepository.GetByIdAsync(id);
             if (booking == null)
@@ -51,6 +65,13 @@ namespace Admitto.Infrastructure.Services
                     Message = ApiMessages.BookingNotFound
                 };
 
+            if (callerUserId.HasValue && booking.UserId != callerUserId.Value)
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
+                };
+
             return new ApiResponse<BookingResponse>
             {
                 Success = true,
@@ -58,7 +79,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<BookingResponse>> CreateAsync(CreateBookingRequest request)
+        public async Task<ApiResponse<BookingResponse>> CreateAsync(CreateBookingRequest request, Guid userId)
         {
             var existingBooking = await _bookingRepository.GetByIdempotencyKeyAsync(request.IdempotencyKey);
             if (existingBooking != null)
@@ -82,8 +103,11 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            var created = await _bookingRepository.CreateAsync(_mapper.Map<Booking>(request), validationResult.Items);
-            _logger.LogInformation("Booking created: {BookingId}", created.Id);
+            var booking = _mapper.Map<Booking>(request);
+            booking.UserId = userId;
+
+            var created = await _bookingRepository.CreateAsync(booking, validationResult.Items);
+            _logger.LogInformation("Booking created: {BookingId} for user {UserId}", created.Id, userId);
             await _notificationService.SendBookingConfirmationAsync(created.Id);
 
             return new ApiResponse<BookingResponse>
@@ -94,7 +118,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<bool>> CancelAsync(int id)
+        public async Task<ApiResponse<bool>> CancelAsync(int id, Guid? callerUserId = null)
         {
             var booking = await _bookingRepository.GetByIdAsync(id);
             if (booking == null)
@@ -104,6 +128,16 @@ namespace Admitto.Infrastructure.Services
                 {
                     Success = false,
                     Message = ApiMessages.BookingNotFound
+                };
+            }
+
+            if (callerUserId.HasValue && booking.UserId != callerUserId.Value)
+            {
+                _logger.LogWarning("User {UserId} attempted to cancel booking {BookingId} they do not own", callerUserId, id);
+                return new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
                 };
             }
 
