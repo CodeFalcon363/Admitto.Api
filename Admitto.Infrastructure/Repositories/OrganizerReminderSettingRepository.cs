@@ -14,8 +14,8 @@ namespace Admitto.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<OrganizerReminderSetting?> GetByOrganizerAsync(Guid organizerId)
-            => await _context.OrganizerReminderSettings.FirstOrDefaultAsync(s => s.OrganizerId == organizerId);
+        public Task<OrganizerReminderSetting?> GetByOrganizerAsync(Guid organizerId)
+            => _context.OrganizerReminderSettings.AsNoTracking().FirstOrDefaultAsync(s => s.OrganizerId == organizerId);
 
         public async Task UpsertAsync(OrganizerReminderSetting setting)
         {

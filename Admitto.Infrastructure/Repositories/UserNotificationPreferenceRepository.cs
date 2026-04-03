@@ -17,11 +17,13 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task<IEnumerable<UserNotificationPreference>> GetByUserAsync(Guid userId)
             => await _context.UserNotificationPreferences
+                .AsNoTracking()
                 .Where(p => p.UserId == userId)
                 .ToListAsync();
 
-        public async Task<UserNotificationPreference?> GetByUserAndTriggerAsync(Guid userId, NotificationTrigger trigger)
-            => await _context.UserNotificationPreferences
+        public Task<UserNotificationPreference?> GetByUserAndTriggerAsync(Guid userId, NotificationTrigger trigger)
+            => _context.UserNotificationPreferences
+                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.UserId == userId && p.TriggerType == trigger);
 
         public async Task UpsertAsync(UserNotificationPreference preference)

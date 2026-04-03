@@ -14,8 +14,8 @@ namespace Admitto.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<EventReminderOverride?> GetByEventAsync(int eventId)
-            => await _context.EventReminderOverrides.FirstOrDefaultAsync(o => o.EventId == eventId);
+        public Task<EventReminderOverride?> GetByEventAsync(int eventId)
+            => _context.EventReminderOverrides.AsNoTracking().FirstOrDefaultAsync(o => o.EventId == eventId);
 
         public async Task UpsertAsync(EventReminderOverride eventOverride)
         {

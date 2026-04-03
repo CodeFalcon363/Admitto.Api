@@ -8,8 +8,6 @@ namespace Admitto.Infrastructure.Services
     {
         private readonly INotificationRuleRepository _ruleRepository;
         private readonly IUserNotificationPreferenceRepository _preferenceRepository;
-        private readonly IEventReminderOverrideRepository _eventOverrideRepository;
-        private readonly IOrganizerReminderSettingRepository _organizerSettingRepository;
         private readonly ICacheService _cache;
 
         // Notification rules are global config — they change only via admin action.
@@ -19,20 +17,13 @@ namespace Admitto.Infrastructure.Services
         // Per-user preferences change on user action — 1 minute is a reasonable lag.
         private static readonly TimeSpan PreferenceTtl = TimeSpan.FromMinutes(1);
 
-        // Organizer and event reminder settings change infrequently.
-        private static readonly TimeSpan ReminderSettingTtl = TimeSpan.FromMinutes(2);
-
         public NotificationResolver(
             INotificationRuleRepository ruleRepository,
             IUserNotificationPreferenceRepository preferenceRepository,
-            IEventReminderOverrideRepository eventOverrideRepository,
-            IOrganizerReminderSettingRepository organizerSettingRepository,
             ICacheService cache)
         {
             _ruleRepository = ruleRepository;
             _preferenceRepository = preferenceRepository;
-            _eventOverrideRepository = eventOverrideRepository;
-            _organizerSettingRepository = organizerSettingRepository;
             _cache = cache;
         }
 
@@ -47,23 +38,6 @@ namespace Admitto.Infrastructure.Services
                 return preference.IsEnabled;
 
             return true;
-        }
-
-        public async Task<int> GetReminderHoursAsync(int eventId, Guid organizerId)
-        {
-            var eventOverride = await GetEventOverrideAsync(eventId);
-            if (eventOverride != null)
-                return eventOverride.ReminderHoursBefore;
-
-            var organizerSetting = await GetOrganizerSettingAsync(organizerId);
-            if (organizerSetting != null)
-                return organizerSetting.ReminderHoursBefore;
-
-            var rule = await GetRuleAsync(NotificationTrigger.EventReminder);
-            if (rule?.ReminderHoursBefore != null)
-                return rule.ReminderHoursBefore.Value;
-
-            return 24;
         }
 
         // ── Private cached fetchers ────────────────────────────────────────────────
@@ -95,32 +69,6 @@ namespace Admitto.Infrastructure.Services
             await _cache.SetAsync(key, new PreferenceWrapper(preference), PreferenceTtl);
 
             return preference;
-        }
-
-        private async Task<Core.Entities.EventReminderOverride?> GetEventOverrideAsync(int eventId)
-        {
-            var key = $"notif:event-override:{eventId}";
-            var cached = await _cache.GetAsync<Core.Entities.EventReminderOverride>(key);
-            if (cached != null) return cached;
-
-            var setting = await _eventOverrideRepository.GetByEventAsync(eventId);
-            if (setting != null)
-                await _cache.SetAsync(key, setting, ReminderSettingTtl);
-
-            return setting;
-        }
-
-        private async Task<Core.Entities.OrganizerReminderSetting?> GetOrganizerSettingAsync(Guid organizerId)
-        {
-            var key = $"notif:organizer-setting:{organizerId}";
-            var cached = await _cache.GetAsync<Core.Entities.OrganizerReminderSetting>(key);
-            if (cached != null) return cached;
-
-            var setting = await _organizerSettingRepository.GetByOrganizerAsync(organizerId);
-            if (setting != null)
-                await _cache.SetAsync(key, setting, ReminderSettingTtl);
-
-            return setting;
         }
 
         /// <summary>
