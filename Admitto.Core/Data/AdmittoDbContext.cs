@@ -27,15 +27,58 @@ namespace Admitto.Core.Data
         {
             modelBuilder.Entity<Entities.BookingItem>()
                 .Property(b => b.UnitPrice)
-                .HasPrecision(18, 2);
+                .HasPrecision(18, 8);
 
             modelBuilder.Entity<Entities.Payment>()
                 .Property(p => p.Amount)
-                .HasPrecision(18, 2);
+                .HasPrecision(18, 8);
 
             modelBuilder.Entity<Entities.TicketType>()
                 .Property(t => t.Price)
-                .HasPrecision(18, 2);
+                .HasPrecision(18, 8);
+
+            // Performance indexes — every column here backs a WHERE clause on a hot path.
+            // Without these, each lookup is a full table scan.
+
+            // Login and registration duplicate check.
+            modelBuilder.Entity<Entities.User>()
+                .HasIndex(u => u.Email)
+                .IsUnique()
+                .HasDatabaseName("IX_Users_Email");
+
+            // Every slug-based event lookup + enforces uniqueness across organizers.
+            modelBuilder.Entity<Entities.Event>()
+                .HasIndex(e => e.Slug)
+                .IsUnique()
+                .HasDatabaseName("IX_Events_Slug");
+
+            // Refresh token lookup on every token refresh/revoke.
+            modelBuilder.Entity<Entities.RefreshToken>()
+                .HasIndex(r => r.Token)
+                .IsUnique()
+                .HasDatabaseName("IX_RefreshTokens_Token");
+
+            // Password reset token lookup.
+            modelBuilder.Entity<Entities.PasswordResetToken>()
+                .HasIndex(p => p.Token)
+                .IsUnique()
+                .HasDatabaseName("IX_PasswordResetTokens_Token");
+
+            // Idempotency key lookup on every booking create.
+            modelBuilder.Entity<Entities.Booking>()
+                .HasIndex(b => b.IdempotencyKey)
+                .IsUnique()
+                .HasDatabaseName("IX_Bookings_IdempotencyKey");
+
+            // Payment lookup by reference (verify endpoint) and by booking (dedup check).
+            modelBuilder.Entity<Entities.Payment>()
+                .HasIndex(p => p.PaymentReference)
+                .IsUnique()
+                .HasDatabaseName("IX_Payments_PaymentReference");
+
+            modelBuilder.Entity<Entities.Payment>()
+                .HasIndex(p => p.BookingId)
+                .HasDatabaseName("IX_Payments_BookingId");
 
             var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 

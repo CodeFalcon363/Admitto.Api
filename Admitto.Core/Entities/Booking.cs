@@ -12,5 +12,6 @@ namespace Admitto.Core.Entities
         public int UpdateCount { get; set; } = 0;
         public string IdempotencyKey { get; set; } = null!;
 
+        public ICollection<BookingItem> Items { get; set; } = new List<BookingItem>();
     }
 }
