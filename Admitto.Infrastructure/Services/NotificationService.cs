@@ -4,7 +4,8 @@ using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RestSharp;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Admitto.Infrastructure.Services
 {
@@ -15,6 +16,7 @@ namespace Admitto.Infrastructure.Services
         private readonly IEventRepository _eventRepository;
         private readonly INotificationResolver _resolver;
         private readonly NotificationSettings _settings;
+        private readonly HttpClient _httpClient;
         private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
@@ -23,6 +25,7 @@ namespace Admitto.Infrastructure.Services
             IEventRepository eventRepository,
             INotificationResolver resolver,
             IOptions<NotificationSettings> settings,
+            IHttpClientFactory httpClientFactory,
             ILogger<NotificationService> logger)
         {
             _bookingRepository = bookingRepository;
@@ -30,6 +33,7 @@ namespace Admitto.Infrastructure.Services
             _eventRepository = eventRepository;
             _resolver = resolver;
             _settings = settings.Value;
+            _httpClient = httpClientFactory.CreateClient("notification");
             _logger = logger;
         }
 
@@ -70,11 +74,15 @@ namespace Admitto.Infrastructure.Services
                 return;
             }
 
-            var bookings = await _bookingRepository.GetAllByEventSlugAsync(eventSlug);
+            var bookings = (await _bookingRepository.GetAllByEventSlugAsync(eventSlug)).ToList();
+            if (bookings.Count == 0) return;
+
+            // Batch-load all attendees in a single query instead of one per booking.
+            var attendeeMap = await _userRepository.GetByIdsAsync(bookings.Select(b => b.UserId));
+
             foreach (var booking in bookings)
             {
-                var attendee = await _userRepository.GetByIdAsync(booking.UserId);
-                if (attendee == null) continue;
+                if (!attendeeMap.TryGetValue(booking.UserId, out var attendee)) continue;
 
                 if (!await _resolver.ShouldSendAsync(attendee.Id, NotificationTrigger.EventReminder)) continue;
 
@@ -202,14 +210,19 @@ namespace Admitto.Infrastructure.Services
         {
             try
             {
-                var client = new RestClient(_settings.BaseUrl);
-                var request = new RestRequest("/email", Method.Post);
-                request.AddHeader("Authorization", $"Bearer {_settings.ApiKey}");
-                request.AddJsonBody(new { from = _settings.SenderEmail, to, subject, body });
+                var payload = new { from = _settings.SenderEmail, to, subject, body };
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_settings.BaseUrl}/email")
+                {
+                    Content = JsonContent.Create(payload),
+                    Headers = { { "Authorization", $"Bearer {_settings.ApiKey}" } }
+                };
 
-                var response = await client.ExecuteAsync(request);
-                if (!response.IsSuccessful)
-                    _logger.LogError("Email send failed: {StatusCode} — {Content}", response.StatusCode, response.Content);
+                using var response = await _httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Email send failed: {StatusCode} — {Content}", response.StatusCode, content);
+                }
             }
             catch (Exception ex)
             {

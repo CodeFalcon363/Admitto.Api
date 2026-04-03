@@ -4,20 +4,25 @@ using Admitto.Core.Settings;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RestSharp;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Web;
 
 namespace Admitto.Infrastructure.Services
 {
     public class EventDiscoveryService : IEventDiscoveryService
     {
         private readonly TicketmasterSettings _settings;
+        private readonly HttpClient _httpClient;
         private readonly ILogger<EventDiscoveryService> _logger;
 
-        public EventDiscoveryService(IOptions<TicketmasterSettings> settings, ILogger<EventDiscoveryService> logger)
+        public EventDiscoveryService(
+            IOptions<TicketmasterSettings> settings,
+            IHttpClientFactory httpClientFactory,
+            ILogger<EventDiscoveryService> logger)
         {
             _settings = settings.Value;
+            _httpClient = httpClientFactory.CreateClient("ticketmaster");
             _logger = logger;
         }
 
@@ -25,21 +30,23 @@ namespace Admitto.Infrastructure.Services
         {
             try
             {
-                var client = new RestClient(_settings.BaseUrl);
-                var request = new RestRequest("/discovery/v2/events.json", Method.Get);
-                request.AddQueryParameter("apikey", _settings.ApiKey);
-                request.AddQueryParameter("keyword", query);
-                request.AddQueryParameter("page", pageNumber - 1); // Ticketmaster pages are 0-indexed
-                request.AddQueryParameter("size", pageSize);
+                // Build URL with query string. ApiKey is in config — not logged in structured logs.
+                var qs = HttpUtility.ParseQueryString(string.Empty);
+                qs["apikey"]  = _settings.ApiKey;
+                qs["keyword"] = query;
+                qs["page"]    = (pageNumber - 1).ToString(); // Ticketmaster pages are 0-indexed
+                qs["size"]    = pageSize.ToString();
+                var url = $"{_settings.BaseUrl}/discovery/v2/events.json?{qs}";
 
-                var response = await client.ExecuteAsync(request);
-                if (!response.IsSuccessful || response.Content == null)
+                using var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogError("Ticketmaster search failed: {StatusCode}", response.StatusCode);
                     return new PagedResponse<ExternalEventResponse> { Success = false, Message = "External event search failed." };
                 }
 
-                var result = JsonSerializer.Deserialize<TicketmasterResponse>(response.Content);
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<TicketmasterResponse>(content);
                 if (result == null)
                     return new PagedResponse<ExternalEventResponse> { Success = false, Message = "Failed to parse external events." };
 
