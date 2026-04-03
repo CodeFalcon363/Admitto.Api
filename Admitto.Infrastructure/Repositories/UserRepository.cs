@@ -28,12 +28,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(User user)
         {
-            var response = await _context.Users.AnyAsync(u => u.Id == user.Id);
-            if (response) 
-            {
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
-            }
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<(IEnumerable<User>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize)
@@ -56,19 +52,18 @@ namespace Admitto.Infrastructure.Repositories
         }
 
         public async Task<User?> GetByIdAsync(Guid id)
+            => await _context.Users.FindAsync(id);
+
+        public async Task<IReadOnlyDictionary<Guid, User>> GetByIdsAsync(IEnumerable<Guid> ids)
         {
-            var response = await _context.Users.FindAsync(id);
-            if (response == null)
-                return null;
-            
-            return response;
+            var idList = ids.Distinct().ToList();
+            return await _context.Users
+                .Where(u => idList.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id);
         }
 
         public async Task<User?> UpdateAsync(User user)
         {
-            var response = await _context.Users.FindAsync(user.Id);
-            if (response == null)
-                return null;
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
             return user;

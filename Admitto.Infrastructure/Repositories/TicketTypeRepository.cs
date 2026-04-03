@@ -26,12 +26,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(TicketType ticketType)
         {
-            var exists = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
-            if (exists)
-            {
-                _context.TicketTypes.Remove(ticketType);
-                await _context.SaveChangesAsync();
-            }
+            _context.TicketTypes.Remove(ticketType);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<(IEnumerable<TicketType>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize)
@@ -74,8 +70,6 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task<TicketType?> UpdateAsync(TicketType ticketType)
         {
-            var exists = await _context.TicketTypes.AnyAsync(t => t.Id == ticketType.Id);
-            if (!exists) return null;
             ticketType.UpdatedAt = DateTime.UtcNow;
             ticketType.UpdateCount++;
             _context.TicketTypes.Update(ticketType);

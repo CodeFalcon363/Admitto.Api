@@ -20,6 +20,8 @@ namespace Admitto.Api.Controllers
         [HttpGet("event/{slug}")]
         public async Task<IActionResult> GetAllByEventSlug(string slug, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
+            pageNumber = Math.Max(1, pageNumber);
+            pageSize   = Math.Clamp(pageSize, 1, 100);
             var result = await _ticketTypeService.GetAllByEventSlugAsync(slug, pageNumber, pageSize);
             return Ok(result);
         }

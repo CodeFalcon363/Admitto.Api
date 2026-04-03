@@ -6,6 +6,7 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
     {
         Task<(IEnumerable<User>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize);
         Task<User?> GetByIdAsync(Guid id);
+        Task<IReadOnlyDictionary<Guid, User>> GetByIdsAsync(IEnumerable<Guid> ids);
         Task<User?> GetByEmailAsync(string email);
         Task<User> CreateAsync(User user);
         Task<User?> UpdateAsync(User user);
