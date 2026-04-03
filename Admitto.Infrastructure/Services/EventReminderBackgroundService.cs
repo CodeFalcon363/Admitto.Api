@@ -18,7 +18,15 @@ namespace Admitto.Infrastructure.Services
         private const string LockKey = "admitto:reminder_lock";
         private static readonly TimeSpan LockExpiry = TimeSpan.FromMinutes(10);
 
-        public EventReminderBackgroundService(IServiceScopeFactory scopeFactory, IConnectionMultiplexer redis, ILogger<EventReminderBackgroundService> logger)
+        // Upper bound on any reminder window configured in the system.
+        // Events starting further out than this will never qualify this tick.
+        // Keeps the SQL result set small regardless of total event count.
+        private const int MaxReminderWindowHours = 72;
+
+        public EventReminderBackgroundService(
+            IServiceScopeFactory scopeFactory,
+            IConnectionMultiplexer redis,
+            ILogger<EventReminderBackgroundService> logger)
         {
             _scopeFactory = scopeFactory;
             _redis = redis;
@@ -54,6 +62,10 @@ namespace Admitto.Infrastructure.Services
                 var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
                 var now = DateTime.UtcNow;
+                // Pre-filter in SQL: only events starting within the maximum possible reminder window.
+                // The precise per-event window check (which varies by override/organizer/global rule)
+                // is still applied in C# below, but the DB only returns a small bounded result set.
+                var lookAheadCutoff = now.AddHours(MaxReminderWindowHours);
 
                 var dueEvents = await (
                     from e in context.Events
@@ -69,6 +81,7 @@ namespace Admitto.Infrastructure.Services
                         && e.ReminderSentAt == null
                         && nr.IsEnabled
                         && e.StartDate > now
+                        && e.StartDate <= lookAheadCutoff  // SQL-side pre-filter
                     select new
                     {
                         Event = e,
@@ -83,13 +96,26 @@ namespace Admitto.Infrastructure.Services
                     var windowStart = item.Event.StartDate.AddHours(-item.ReminderHours);
                     if (now < windowStart) continue;
 
-                    await notificationService.SendEventReminderAsync(item.Event.Slug);
+                    try
+                    {
+                        await notificationService.SendEventReminderAsync(item.Event.Slug);
 
-                    item.Event.ReminderSentAt = now;
+                        // Persist immediately after each successful send.
+                        // This way a crash or error on the next event does not cause
+                        // already-sent reminders to be re-sent on the next tick.
+                        item.Event.ReminderSentAt = now;
+                        await context.SaveChangesAsync();
+
+                        _logger.LogInformation("Reminder sent and persisted for event {EventId}", item.Event.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send reminder for event {EventId} — will retry next tick", item.Event.Id);
+                        // Detach the entity so the failed ReminderSentAt=null state does not
+                        // bleed into subsequent SaveChangesAsync calls for other events.
+                        context.Entry(item.Event).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+                    }
                 }
-
-                if (dueEvents.Any(d => d.Event.ReminderSentAt != null))
-                    await context.SaveChangesAsync();
             }
             catch (RedisConnectionException ex)
             {
@@ -105,8 +131,12 @@ namespace Admitto.Infrastructure.Services
                 {
                     try
                     {
-                        const string releaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
-                        await db.ScriptEvaluateAsync(releaseScript, new RedisKey[] { LockKey }, new RedisValue[] { lockValue });
+                        const string releaseScript =
+                            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+                        await db.ScriptEvaluateAsync(
+                            releaseScript,
+                            new RedisKey[] { LockKey },
+                            new RedisValue[] { lockValue });
                     }
                     catch (RedisConnectionException) { /* Redis went down between acquire and release — lock expires naturally */ }
                 }
