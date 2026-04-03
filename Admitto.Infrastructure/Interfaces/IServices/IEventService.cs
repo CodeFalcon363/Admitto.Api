@@ -9,8 +9,8 @@ namespace Admitto.Infrastructure.Interfaces.IServices
         Task<PagedResponse<EventResponse>> GetAllAsync(int pageNumber, int pageSize);
         Task<ApiResponse<EventResponse>> GetByIdAsync(int id);
         Task<ApiResponse<EventResponse>> GetBySlugAsync(string slug);
-        Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request);
-        Task<ApiResponse<EventResponse>> UpdateAsync(string slug, UpdateEventRequest request);
+        Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request, Guid organizerId);
+        Task<ApiResponse<EventResponse>> UpdateAsync(string slug, UpdateEventRequest request, Guid? callerUserId = null);
         Task<ApiResponse<bool>> DeleteAsync(int id);
     }
 }

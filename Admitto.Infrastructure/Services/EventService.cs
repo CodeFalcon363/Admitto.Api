@@ -75,9 +75,12 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request)
+        public async Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request, Guid organizerId)
         {
-            var created = await _eventRepository.CreateAsync(MapToEntity(request));
+            var ev = MapToEntity(request);
+            ev.OrganizerId = organizerId;
+
+            var created = await _eventRepository.CreateAsync(ev);
             _logger.LogInformation("Event created: {EventId} - {Title}", created.Id, created.Title);
             await _notificationService.SendEventCreatedAsync(created.Id);
 
@@ -89,7 +92,7 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        public async Task<ApiResponse<EventResponse>> UpdateAsync(string slug, UpdateEventRequest request)
+        public async Task<ApiResponse<EventResponse>> UpdateAsync(string slug, UpdateEventRequest request, Guid? callerUserId = null)
         {
             var ev = await _eventRepository.GetBySlugAsync(slug);
             if (ev == null)
@@ -99,6 +102,16 @@ namespace Admitto.Infrastructure.Services
                 {
                     Success = false,
                     Message = ApiMessages.EventNotFound
+                };
+            }
+
+            if (callerUserId.HasValue && ev.OrganizerId != callerUserId.Value)
+            {
+                _logger.LogWarning("User {UserId} attempted to update event {Slug} they do not own", callerUserId, slug);
+                return new ApiResponse<EventResponse>
+                {
+                    Success = false,
+                    Message = ApiMessages.UnauthorizedAccess
                 };
             }
 

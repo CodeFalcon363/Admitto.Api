@@ -3,6 +3,8 @@ using Admitto.Core.Models.Requests.Events;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
@@ -42,7 +44,8 @@ namespace Admitto.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateEventRequest request)
         {
-            var result = await _eventService.CreateAsync(request);
+            var organizerId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var result = await _eventService.CreateAsync(request, organizerId);
             return StatusCode(201, result);
         }
 
@@ -50,8 +53,14 @@ namespace Admitto.Api.Controllers
         [HttpPut("{slug}")]
         public async Task<IActionResult> Update(string slug, [FromBody] UpdateEventRequest request)
         {
-            var result = await _eventService.UpdateAsync(slug, request);
-            return result.Success ? Ok(result) : NotFound(result);
+            var callerUserId = User.IsInRole(Roles.Admin)
+                ? (Guid?)null
+                : Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+
+            var result = await _eventService.UpdateAsync(slug, request, callerUserId);
+            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
+                ? Forbid()
+                : NotFound(result);
         }
 
         [Authorize(Roles = Roles.Admin)]
