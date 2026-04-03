@@ -48,6 +48,17 @@ namespace Admitto.Infrastructure.Services
                     Message = ApiMessages.UnauthorizedAccess
                 };
 
+            var validationError = await FileValidator.ValidateAsync(fileStream, fileName);
+            if (validationError != null)
+            {
+                _logger.LogWarning("File upload rejected for event {EventId}: {Reason}", eventId, validationError);
+                return new ApiResponse<EventMediaResponse>
+                {
+                    Success = false,
+                    Message = validationError
+                };
+            }
+
             var url = await _fileService.SaveAsync(fileStream, fileName, "events");
             var created = await _eventMediaRepository.CreateAsync(new EventMedia
             {

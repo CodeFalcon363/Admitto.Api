@@ -29,6 +29,7 @@ namespace Admitto.Api.Controllers
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]
         [HttpPost]
         [Consumes("multipart/form-data")]
+        [RequestSizeLimit(10 * 1024 * 1024)]  // 10 MB — mirrors FileValidator.MaxFileSizeBytes
         public async Task<IActionResult> Upload(int eventId, IFormFile file, [FromForm] MediaType type)
         {
             var callerUserId = User.IsInRole(Roles.Admin)
