@@ -107,6 +107,13 @@ namespace Admitto.Api.Extensions
             services.AddScoped<INotificationRuleService, NotificationRuleService>();
             services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
             services.AddHostedService<EventReminderBackgroundService>();
+
+            // Named HttpClients — shared, pooled connections managed by IHttpClientFactory.
+            // Prevents socket exhaustion caused by instantiating RestClient (or HttpClient)
+            // per-request, which leaves sockets in TIME_WAIT under any meaningful load.
+            services.AddHttpClient("notification");
+            services.AddHttpClient("ticketmaster");
+
             return services;
         }
 
