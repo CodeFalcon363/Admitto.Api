@@ -1,5 +1,6 @@
 using Admitto.Core.Data;
 using Admitto.Core.Settings;
+using Admitto.Infrastructure.Http;
 using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Admitto.Infrastructure.Mappings;
@@ -7,12 +8,14 @@ using Admitto.Infrastructure.Repositories;
 using Admitto.Infrastructure.Services;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace Admitto.Api.Extensions
 {
@@ -47,7 +50,10 @@ namespace Admitto.Api.Extensions
                 return ConnectionMultiplexer.Connect(standaloneOptions);
             });
 
-            services.AddScoped<ICacheService, CacheService>();
+            // Singleton: CacheService wraps IConnectionMultiplexer (already Singleton) and
+            // holds no request-scoped state. Scoped was creating a new wrapper per request
+            // for no reason.
+            services.AddSingleton<ICacheService, CacheService>();
             return services;
         }
 
@@ -112,7 +118,12 @@ namespace Admitto.Api.Extensions
             // Prevents socket exhaustion caused by instantiating RestClient (or HttpClient)
             // per-request, which leaves sockets in TIME_WAIT under any meaningful load.
             services.AddHttpClient("notification");
-            services.AddHttpClient("ticketmaster");
+
+            // TicketmasterApiKeyHandler injects the API key as a header so it never
+            // appears in the URL (and therefore never in access logs or proxy logs).
+            services.AddTransient<TicketmasterApiKeyHandler>();
+            services.AddHttpClient("ticketmaster")
+                .AddHttpMessageHandler<TicketmasterApiKeyHandler>();
 
             return services;
         }
@@ -121,6 +132,7 @@ namespace Admitto.Api.Extensions
         {
             var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>()!;
             services.Configure<JwtSettings>(config.GetSection("JwtSettings"));
+            services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
 
             services.AddAuthentication(options =>
             {
@@ -160,6 +172,31 @@ namespace Admitto.Api.Extensions
         public static IServiceCollection AddMappings(this IServiceCollection services)
         {
             services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+            return services;
+        }
+
+        /// <summary>
+        /// Rate-limits auth endpoints that run BCrypt or send emails.
+        /// 10 requests per IP per minute is generous for legitimate use and blocks brute-force.
+        /// </summary>
+        public static IServiceCollection AddAuthRateLimiting(this IServiceCollection services)
+        {
+            services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("auth", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 10,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            });
+
             return services;
         }
     }
