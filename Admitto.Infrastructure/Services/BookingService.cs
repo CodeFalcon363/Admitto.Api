@@ -1,5 +1,4 @@
 using Admitto.Core.Constants;
-using Admitto.Core.Entities;
 using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Bookings;
 using Admitto.Core.Models.Responses.Bookings;
@@ -18,7 +17,12 @@ namespace Admitto.Infrastructure.Services
         private readonly IMapper _mapper;
         private readonly ILogger<BookingService> _logger;
 
-        public BookingService(IBookingRepository bookingRepository, ITicketTypeRepository ticketTypeRepository, INotificationService notificationService, IMapper mapper, ILogger<BookingService> logger)
+        public BookingService(
+            IBookingRepository bookingRepository,
+            ITicketTypeRepository ticketTypeRepository,
+            INotificationService notificationService,
+            IMapper mapper,
+            ILogger<BookingService> logger)
         {
             _bookingRepository = bookingRepository;
             _ticketTypeRepository = ticketTypeRepository;
@@ -92,21 +96,33 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            var validationResult = await ValidateAndBuildItems(request);
-            if (validationResult.Error != null)
+            // Validate business rules only (no capacity changes here).
+            // Capacity decrement + insert happen atomically inside CreateTransactionalAsync.
+            var (lineItems, validationError) = await ValidateAndBuildLineItemsAsync(request);
+            if (validationError != null)
             {
-                _logger.LogWarning("Booking validation failed: {Reason}", validationResult.Error);
+                _logger.LogWarning("Booking validation failed: {Reason}", validationError);
                 return new ApiResponse<BookingResponse>
                 {
                     Success = false,
-                    Message = validationResult.Error
+                    Message = validationError
                 };
             }
 
-            var booking = _mapper.Map<Booking>(request);
+            var booking = _mapper.Map<Core.Entities.Booking>(request);
             booking.UserId = userId;
 
-            var created = await _bookingRepository.CreateAsync(booking, validationResult.Items);
+            var (created, error) = await _bookingRepository.CreateTransactionalAsync(booking, lineItems);
+            if (created == null)
+            {
+                _logger.LogWarning("Booking creation failed in transaction: {Reason}", error);
+                return new ApiResponse<BookingResponse>
+                {
+                    Success = false,
+                    Message = error
+                };
+            }
+
             _logger.LogInformation("Booking created: {BookingId} for user {UserId}", created.Id, userId);
             await _notificationService.SendBookingConfirmationAsync(created.Id);
 
@@ -141,7 +157,8 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            await _bookingRepository.UpdateAsync(ApplyCancel(booking));
+            booking.Status = BookingStatus.Canceled;
+            await _bookingRepository.UpdateAsync(booking);
             _logger.LogInformation("Booking {BookingId} canceled", id);
             await _notificationService.SendCancellationAsync(id);
 
@@ -153,44 +170,28 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        private Booking ApplyCancel(Booking booking)
+        /// <summary>
+        /// Validates business rules for each line item (existence, sale window) and returns
+        /// the priced line items. Does NOT touch capacity — the repository owns that atomically.
+        /// </summary>
+        private async Task<(List<BookingLineItem> Items, string? Error)> ValidateAndBuildLineItemsAsync(
+            CreateBookingRequest request)
         {
-            booking.Status = BookingStatus.Canceled;
-            return booking;
-        }
+            var lineItems = new List<BookingLineItem>();
 
-        private async Task<(List<BookingItem> Items, string? Error)> ValidateAndBuildItems(CreateBookingRequest request)
-        {
-            var items = new List<BookingItem>();
             foreach (var item in request.Items)
             {
                 var ticketType = await _ticketTypeRepository.GetByIdAsync(item.TicketTypeId);
                 if (ticketType == null)
-                    return (items, ApiMessages.TicketTypeNotFound);
+                    return (lineItems, ApiMessages.TicketTypeNotFound);
 
                 if (ticketType.SaleEndDate.HasValue && ticketType.SaleEndDate < DateTime.UtcNow)
-                    return (items, ApiMessages.TicketSalesEnded);
+                    return (lineItems, ApiMessages.TicketSalesEnded);
 
-                // Atomic decrement — prevents overselling under concurrent load.
-                // The SQL UPDATE checks Capacity >= quantity in the same statement.
-                var decremented = await _ticketTypeRepository.DecrementCapacityAsync(item.TicketTypeId, item.Quantity);
-                if (!decremented)
-                    return (items, ApiMessages.InsufficientTickets);
-
-                items.Add(BuildBookingItem(item.TicketTypeId, item.Quantity, ticketType.Price));
+                lineItems.Add(new BookingLineItem(item.TicketTypeId, item.Quantity, ticketType.Price));
             }
-            return (items, null);
-        }
 
-        private BookingItem BuildBookingItem(int ticketTypeId, int quantity, decimal unitPrice)
-        {
-            return new BookingItem
-            {
-                TicketTypeId = ticketTypeId,
-                Quantity = quantity,
-                UnitPrice = unitPrice,
-                CreatedAt = DateTime.UtcNow
-            };
+            return (lineItems, null);
         }
     }
 }

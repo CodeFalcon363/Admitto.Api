@@ -23,6 +23,9 @@ namespace Admitto.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
+            pageNumber = Math.Max(1, pageNumber);
+            pageSize   = Math.Clamp(pageSize, 1, 100);
+
             if (User.IsInRole(Roles.Admin))
             {
                 var all = await _bookingService.GetAllAsync(pageNumber, pageSize);
