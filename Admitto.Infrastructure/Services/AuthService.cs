@@ -201,7 +201,7 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            var token = GenerateBase64UrlToken(32);
             await _passwordResetToken.CreateAsync(new PasswordResetToken
             {
                 UserId = user.Id,
@@ -301,7 +301,7 @@ namespace Admitto.Infrastructure.Services
             {
                 UserId = userId,
                 JwtId = jwtId,
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Token = GenerateBase64UrlToken(64),
                 IsUsed = false,
                 IsRevoked = false,
                 CreatedAt = DateTime.UtcNow,
@@ -309,11 +309,46 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
+        /// <summary>
+        /// Produces a URL-safe Base64 token (RFC 4648 §5).
+        /// Standard Base64 (+, /, =) breaks URL query parameters without explicit encoding.
+        /// </summary>
+        private static string GenerateBase64UrlToken(int byteLength)
+            => Convert.ToBase64String(RandomNumberGenerator.GetBytes(byteLength))
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .TrimEnd('=');
+
+        /// <summary>
+        /// Validates the expired JWT's signature, issuer, and audience — but NOT its lifetime,
+        /// since it is expected to be expired. Extracting the JTI from an unvalidated token
+        /// would allow any attacker who knows the stored JTI to forge a matching JWT.
+        /// </summary>
         private string? GetJwtIdFromToken(string token)
         {
             var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-            return jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+            var validationParams = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = false, // token is expected to be expired
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = _jwtSettings.Issuer,
+                ValidAudience = _jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey)),
+                ClockSkew = TimeSpan.Zero
+            };
+
+            try
+            {
+                var principal = handler.ValidateToken(token, validationParams, out _);
+                return principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            }
+            catch (SecurityTokenException ex)
+            {
+                _logger.LogWarning(ex, "Expired JWT failed signature/issuer validation during token refresh");
+                return null;
+            }
         }
     }
 }
