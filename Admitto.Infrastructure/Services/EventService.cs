@@ -7,6 +7,9 @@ using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Admitto.Infrastructure.Services
 {
@@ -77,7 +80,7 @@ namespace Admitto.Infrastructure.Services
 
         public async Task<ApiResponse<EventResponse>> CreateAsync(CreateEventRequest request, Guid organizerId)
         {
-            var ev = MapToEntity(request);
+            var ev = await MapToEntityAsync(request);
             ev.OrganizerId = organizerId;
 
             var created = await _eventRepository.CreateAsync(ev);
@@ -154,11 +157,46 @@ namespace Admitto.Infrastructure.Services
             };
         }
 
-        private Event MapToEntity(CreateEventRequest request)
+        private async Task<Event> MapToEntityAsync(CreateEventRequest request)
         {
             var ev = _mapper.Map<Event>(request);
-            ev.Slug = request.Title.ToLower().Replace(" ", "-").Replace("'", "");
+            ev.Slug = await GenerateUniqueSlugAsync(request.Title);
             return ev;
+        }
+
+        private async Task<string> GenerateUniqueSlugAsync(string title)
+        {
+            var baseSlug = Slugify(title);
+            var slug = baseSlug;
+            var suffix = 1;
+
+            while (await _eventRepository.SlugExistsAsync(slug))
+                slug = $"{baseSlug}-{suffix++}";
+
+            return slug;
+        }
+
+        /// <summary>
+        /// Converts a title to a URL-safe slug:
+        ///   1. Unicode normalization (NFD) decomposes accented chars (é → e + combining acute).
+        ///   2. Non-spacing combining marks (accents) are stripped.
+        ///   3. Every non-alphanumeric character becomes a hyphen.
+        ///   4. Consecutive hyphens are collapsed to one.
+        ///   5. Leading/trailing hyphens are trimmed.
+        /// </summary>
+        private static string Slugify(string input)
+        {
+            var normalized = input.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+
+            foreach (var c in normalized)
+            {
+                var category = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (category == UnicodeCategory.NonSpacingMark) continue;
+                sb.Append(char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : '-');
+            }
+
+            return Regex.Replace(sb.ToString().Trim('-'), "-{2,}", "-");
         }
 
         private Event ApplyUpdate(UpdateEventRequest request, Event ev)

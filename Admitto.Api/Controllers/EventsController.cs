@@ -22,6 +22,8 @@ namespace Admitto.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
+            pageNumber = Math.Max(1, pageNumber);
+            pageSize   = Math.Clamp(pageSize, 1, 100);
             var result = await _eventService.GetAllAsync(pageNumber, pageSize);
             return Ok(result);
         }

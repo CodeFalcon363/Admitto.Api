@@ -28,12 +28,8 @@ namespace Admitto.Infrastructure.Repositories
 
         public async Task DeleteAsync(Event e)
         {
-            var response = await _context.Events.AnyAsync(u => u.Id == e.Id);
-            if (response)
-            {
-                _context.Events.Remove(e);
-                await _context.SaveChangesAsync();
-            }
+            _context.Events.Remove(e);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<(IEnumerable<Event>, int totalRecords)> GetAllAsync(int pageNumber, int pageSize)
@@ -53,16 +49,13 @@ namespace Admitto.Infrastructure.Repositories
         }
 
         public Task<Event?> GetBySlugAsync(string slug)
-        {
-            var response = _context.Events.FirstOrDefaultAsync(s => s.Slug == slug);
-            return response;
-        }
+            => _context.Events.FirstOrDefaultAsync(e => e.Slug == slug);
+
+        public Task<bool> SlugExistsAsync(string slug)
+            => _context.Events.AnyAsync(e => e.Slug == slug);
 
         public async Task<Event?> UpdateAsync(Event e)
         {
-            var response = await _context.Events.AnyAsync(ev => ev.Id == e.Id);
-            if (response == false)
-                return null;
             e.UpdatedAt = DateTime.UtcNow;
             e.UpdateCount++;
             _context.Events.Update(e);
