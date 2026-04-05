@@ -1,14 +1,16 @@
 using Admitto.Infrastructure.Interfaces.IServices;
 using Admitto.Core.Models.Requests;
 using Admitto.Core.Models.Requests.Auth;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [ApiController]
-    [Route("api/auth")]
+    [Route("api/v{version:apiVersion}/auth")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;

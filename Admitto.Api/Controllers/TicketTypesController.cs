@@ -1,13 +1,15 @@
 using Admitto.Core.Constants;
 using Admitto.Core.Models.Requests.TicketTypes;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [ApiController]
-    [Route("api/ticket-types")]
+    [Route("api/v{version:apiVersion}/ticket-types")]
     public class TicketTypesController : ControllerBase
     {
         private readonly ITicketTypeService _ticketTypeService;

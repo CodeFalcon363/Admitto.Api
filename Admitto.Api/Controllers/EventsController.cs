@@ -1,6 +1,7 @@
 using Admitto.Core.Constants;
 using Admitto.Core.Models.Requests.Events;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -9,8 +10,9 @@ using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [ApiController]
-    [Route("api/events")]
+    [Route("api/v{version:apiVersion}/events")]
     public class EventsController : ControllerBase
     {
         private readonly IEventService _eventService;

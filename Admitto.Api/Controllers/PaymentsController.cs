@@ -2,6 +2,7 @@ using Admitto.Core.Constants;
 using Admitto.Core.Models;
 using Admitto.Core.Models.Requests.Payments;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
@@ -9,9 +10,10 @@ using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [Authorize]
     [ApiController]
-    [Route("api/payments")]
+    [Route("api/v{version:apiVersion}/payments")]
     public class PaymentsController : ControllerBase
     {
         private readonly IPaymentService _paymentService;

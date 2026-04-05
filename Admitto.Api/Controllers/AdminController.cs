@@ -1,14 +1,16 @@
 using Admitto.Core.Constants;
 using Admitto.Core.Models.Requests.Notifications;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [Authorize(Roles = Roles.Admin)]
     [ApiController]
-    [Route("api/admin")]
+    [Route("api/v{version:apiVersion}/admin")]
     public class AdminController : ControllerBase
     {
         private readonly INotificationRuleService _notificationRuleService;

@@ -1,6 +1,7 @@
 using Admitto.Core.Constants;
 using Admitto.Core.Models;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
@@ -8,8 +9,9 @@ using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [ApiController]
-    [Route("api/events/{eventId:int}/media")]
+    [Route("api/v{version:apiVersion}/events/{eventId:int}/media")]
     public class EventMediaController : ControllerBase
     {
         private readonly IEventMediaService _eventMediaService;

@@ -1,6 +1,7 @@
 using Admitto.Core.Constants;
 using Admitto.Core.Models.Requests.Bookings;
 using Admitto.Infrastructure.Interfaces.IServices;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
@@ -8,9 +9,10 @@ using System.Security.Claims;
 
 namespace Admitto.Api.Controllers
 {
+    [ApiVersion("1.0")]
     [Authorize]
     [ApiController]
-    [Route("api/bookings")]
+    [Route("api/v{version:apiVersion}/bookings")]
     public class BookingsController : ControllerBase
     {
         private readonly IBookingService _bookingService;
