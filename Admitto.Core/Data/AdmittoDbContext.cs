@@ -81,6 +81,21 @@ namespace Admitto.Core.Data
                 .HasIndex(p => p.BookingId)
                 .HasDatabaseName("IX_Payments_BookingId");
 
+            // GetAllByUserIdAsync — every attendee's booking list lookup.
+            modelBuilder.Entity<Entities.Booking>()
+                .HasIndex(b => b.UserId)
+                .HasDatabaseName("IX_Bookings_UserId");
+
+            // CancelTransactionalAsync reads BookingItems for the booking being canceled.
+            modelBuilder.Entity<Entities.BookingItem>()
+                .HasIndex(bi => bi.BookingId)
+                .HasDatabaseName("IX_BookingItems_BookingId");
+
+            // GetAllByEventSlugAsync and ticket availability lookups per event.
+            modelBuilder.Entity<Entities.TicketType>()
+                .HasIndex(tt => tt.EventId)
+                .HasDatabaseName("IX_TicketTypes_EventId");
+
             // Outbox processor polls for unprocessed messages — index keeps the scan fast.
             modelBuilder.Entity<Entities.OutboxMessage>()
                 .HasIndex(o => new { o.ProcessedAt, o.RetryCount })
