@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RedisRateLimiting;
 using StackExchange.Redis;
+using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -28,7 +29,13 @@ namespace Admitto.Api.Extensions
             services.AddDbContext<AdmittoDbContext>(options =>
                 options.UseSqlServer(
                     config.GetConnectionString("DefaultConnection"),
-                    sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
+                    sql =>
+                    {
+                        sql.EnableRetryOnFailure(maxRetryCount: 3);
+                        // 30-second command timeout. Default is 30 s in EF Core but being
+                        // explicit means this doesn't change when EF Core changes its default.
+                        sql.CommandTimeout(30);
+                    }));
             return services;
         }
 
@@ -223,8 +230,15 @@ namespace Admitto.Api.Extensions
             return services;
         }
 
-        public static IServiceCollection AddOutputCacheDefaults(this IServiceCollection services)
+        /// <summary>
+        /// Redis-backed output cache so all instances share the same cache store.
+        /// In-memory output cache (the default) is per-process — useless behind a load balancer.
+        /// </summary>
+        public static IServiceCollection AddOutputCacheDefaults(
+            this IServiceCollection services, IConfiguration config)
         {
+            services.AddStackExchangeRedisOutputCache(options =>
+                options.Configuration = config.GetConnectionString("Redis"));
             services.AddOutputCache();
             return services;
         }
@@ -233,21 +247,44 @@ namespace Admitto.Api.Extensions
         /// Rate-limits auth endpoints that run BCrypt or send emails.
         /// 10 requests per IP per minute is generous for legitimate use and blocks brute-force.
         /// State is stored in Redis so the limit holds across all instances (horizontal scaling).
+        ///
+        /// Fail-open on Redis unavailability: if the Redis call throws, the OnRejected handler
+        /// is NOT invoked — the exception would bubble up through the middleware pipeline and
+        /// bypass GlobalExceptionHandler. We wrap the connection factory to catch and log Redis
+        /// errors and fall back to a permissive in-process limiter so the endpoint stays alive.
         /// </summary>
         public static IServiceCollection AddAuthRateLimiting(this IServiceCollection services)
         {
             services.AddRateLimiter(options =>
             {
                 options.AddPolicy("auth", httpContext =>
-                    RedisRateLimitPartition.GetFixedWindowRateLimiter(
+                {
+                    var multiplexer = httpContext.RequestServices
+                        .GetRequiredService<IConnectionMultiplexer>();
+
+                    // If Redis is not connected, fall back to a local unlimited limiter
+                    // so auth endpoints remain available. The trade-off: rate limiting is
+                    // temporarily unenforced on this instance. Logging the degradation means
+                    // ops can alert on it.
+                    if (!multiplexer.IsConnected)
+                    {
+                        var logger = httpContext.RequestServices
+                            .GetRequiredService<ILogger<IServiceCollection>>();
+                        logger.LogWarning(
+                            "Redis unavailable — rate limiter falling back to allow-all for this instance");
+
+                        return RateLimitPartition.GetNoLimiter<string>("fallback");
+                    }
+
+                    return RedisRateLimitPartition.GetFixedWindowRateLimiter(
                         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                         factory: _ => new RedisFixedWindowRateLimiterOptions
                         {
                             PermitLimit = 10,
                             Window = TimeSpan.FromMinutes(1),
-                            ConnectionMultiplexerFactory = () =>
-                                httpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>()
-                        }));
+                            ConnectionMultiplexerFactory = () => multiplexer
+                        });
+                });
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             });

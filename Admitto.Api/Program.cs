@@ -13,6 +13,10 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // 30 s gives in-flight booking transactions enough time to commit before the process exits.
+    // The default 5 s is too short — a slow DB write under deploy load rolls back silently.
+    builder.WebHost.UseShutdownTimeout(TimeSpan.FromSeconds(30));
+
     // Replace the default .NET logging pipeline with Serilog.
     // Full configuration (sinks, levels, Seq URL) is read from appsettings.json under "Serilog:".
     builder.Host.UseSerilog((ctx, services, config) =>
@@ -39,7 +43,7 @@ try
     builder.Services.AddCorsDefaults();
     builder.Services.AddApiVersioningDefaults();
     builder.Services.AddResponseCompressionDefaults();
-    builder.Services.AddOutputCacheDefaults();
+    builder.Services.AddOutputCacheDefaults(builder.Configuration);
     builder.Services.AddAppHealthChecks(builder.Configuration);
 
     var app = builder.Build();
