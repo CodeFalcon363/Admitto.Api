@@ -119,7 +119,7 @@ namespace Admitto.Infrastructure.Services
             }
             catch (RedisConnectionException ex)
             {
-                _logger.LogWarning(ex, "Redis unavailable — skipping reminder check, lock will expire naturally");
+                _logger.LogWarning("Redis unavailable — skipping reminder check, lock will expire naturally. Reason: {Message}", ex.Message);
             }
             catch (Exception ex)
             {
