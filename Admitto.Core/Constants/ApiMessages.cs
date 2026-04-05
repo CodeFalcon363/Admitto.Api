@@ -30,6 +30,7 @@
         public const string BookingCreated = "Booking created successfully.";
         public const string BookingCanceled = "Booking canceled successfully.";
         public const string BookingNotFound = "Booking not found.";
+        public const string BookingAlreadyCanceled = "This booking has already been canceled.";
 
         //Payments
         public const string PaymentProcessed = "Payment processed successfully.";

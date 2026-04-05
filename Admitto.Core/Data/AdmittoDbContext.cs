@@ -22,6 +22,7 @@ namespace Admitto.Core.Data
         public DbSet<Entities.UserNotificationPreference> UserNotificationPreferences { get; set; } = null!;
         public DbSet<Entities.EventReminderOverride> EventReminderOverrides { get; set; } = null!;
         public DbSet<Entities.OrganizerReminderSetting> OrganizerReminderSettings { get; set; } = null!;
+        public DbSet<Entities.OutboxMessage> OutboxMessages { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -79,6 +80,11 @@ namespace Admitto.Core.Data
             modelBuilder.Entity<Entities.Payment>()
                 .HasIndex(p => p.BookingId)
                 .HasDatabaseName("IX_Payments_BookingId");
+
+            // Outbox processor polls for unprocessed messages — index keeps the scan fast.
+            modelBuilder.Entity<Entities.OutboxMessage>()
+                .HasIndex(o => new { o.ProcessedAt, o.RetryCount })
+                .HasDatabaseName("IX_OutboxMessages_Pending");
 
             var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
