@@ -3,6 +3,7 @@ using Admitto.Core.Models.Requests.Events;
 using Admitto.Infrastructure.Interfaces.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -19,6 +20,9 @@ namespace Admitto.Api.Controllers
             _eventService = eventService;
         }
 
+        // 30-second TTL absorbs read spikes without serving significantly stale data.
+        // Varies cache by pageNumber and pageSize so each page has its own entry.
+        [OutputCache(Duration = 30, VaryByQueryKeys = ["pageNumber", "pageSize"])]
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
