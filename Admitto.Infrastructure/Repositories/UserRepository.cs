@@ -52,11 +52,16 @@ namespace Admitto.Infrastructure.Repositories
                 .ToDictionaryAsync(u => u.Id);
         }
 
-        public async Task<User?> UpdateAsync(User user)
+        public async Task<User?> UpdateAsync(User updated)
         {
-            _context.Users.Update(user);
+            // Re-fetch with tracking so EF Core only generates UPDATE statements for
+            // columns that actually changed — avoids full-row dirty writes on detached entities.
+            var existing = await _context.Users.FindAsync(updated.Id);
+            if (existing == null) return null;
+
+            _context.Entry(existing).CurrentValues.SetValues(updated);
             await _context.SaveChangesAsync();
-            return user;
+            return existing;
         }
     }
 }

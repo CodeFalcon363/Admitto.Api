@@ -46,13 +46,18 @@ namespace Admitto.Infrastructure.Repositories
         public Task<bool> SlugExistsAsync(string slug)
             => _context.Events.AnyAsync(e => e.Slug == slug);
 
-        public async Task<Event?> UpdateAsync(Event e)
+        public async Task<Event?> UpdateAsync(Event updated)
         {
-            e.UpdatedAt = DateTime.UtcNow;
-            e.UpdateCount++;
-            _context.Events.Update(e);
+            // Re-fetch with tracking so EF Core only generates UPDATE statements for
+            // columns that actually changed — avoids full-row dirty writes on detached entities.
+            var existing = await _context.Events.FindAsync(updated.Id);
+            if (existing == null) return null;
+
+            _context.Entry(existing).CurrentValues.SetValues(updated);
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdateCount++;
             await _context.SaveChangesAsync();
-            return e;
+            return existing;
         }
     }
 }
