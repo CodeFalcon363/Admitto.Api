@@ -9,14 +9,19 @@ using Newtonsoft.Json;
 namespace Admitto.Infrastructure.Services
 {
     /// <summary>
-    /// Background processor that drains the OutboxMessages table every 30 seconds.
+    /// Background processor that drains the OutboxMessages table every 10 seconds.
     /// Retries failed messages up to 3 times before marking them permanently failed.
     /// Using IServiceScopeFactory because the processor is Singleton but its
     /// dependencies (DbContext, repositories) are Scoped.
+    ///
+    /// Batch size is 200. If the batch fills completely the processor logs a warning —
+    /// this is the backlog signal: the producer (booking/event creates) is outpacing
+    /// the consumer. Scale the processor or reduce the interval if this fires regularly.
     /// </summary>
     public class NotificationOutboxProcessor : BackgroundService
     {
-        private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan Interval  = TimeSpan.FromSeconds(10);
+        private const int BatchSize = 200;
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<NotificationOutboxProcessor> _logger;
@@ -47,13 +52,20 @@ namespace Admitto.Infrastructure.Services
             List<Core.Entities.OutboxMessage> pending;
             try
             {
-                pending = await outbox.GetPendingAsync();
+                pending = await outbox.GetPendingAsync(BatchSize);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to read outbox — will retry next tick");
                 return;
             }
+
+            // Full batch means the queue is growing faster than we drain it.
+            // Log a warning so ops can alert on it.
+            if (pending.Count == BatchSize)
+                _logger.LogWarning(
+                    "Outbox batch was full ({BatchSize} messages). Queue may be backing up — consider scaling the processor",
+                    BatchSize);
 
             foreach (var message in pending)
             {
