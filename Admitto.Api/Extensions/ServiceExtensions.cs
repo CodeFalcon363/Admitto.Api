@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using RedisRateLimiting;
 using StackExchange.Redis;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -24,7 +25,9 @@ namespace Admitto.Api.Extensions
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration config)
         {
             services.AddDbContext<AdmittoDbContext>(options =>
-                options.UseSqlServer(config.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(
+                    config.GetConnectionString("DefaultConnection"),
+                    sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
             return services;
         }
 
@@ -95,6 +98,7 @@ namespace Admitto.Api.Extensions
             services.AddScoped<IUserNotificationPreferenceRepository, UserNotificationPreferenceRepository>();
             services.AddScoped<IEventReminderOverrideRepository, EventReminderOverrideRepository>();
             services.AddScoped<IOrganizerReminderSettingRepository, OrganizerReminderSettingRepository>();
+            services.AddScoped<IOutboxRepository, OutboxRepository>();
             return services;
         }
 
@@ -113,17 +117,22 @@ namespace Admitto.Api.Extensions
             services.AddScoped<INotificationRuleService, NotificationRuleService>();
             services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
             services.AddHostedService<EventReminderBackgroundService>();
+            services.AddHostedService<NotificationOutboxProcessor>();
 
             // Named HttpClients — shared, pooled connections managed by IHttpClientFactory.
             // Prevents socket exhaustion caused by instantiating RestClient (or HttpClient)
             // per-request, which leaves sockets in TIME_WAIT under any meaningful load.
-            services.AddHttpClient("notification");
+            // AddStandardResilienceHandler wires Polly: 3 retries (exponential back-off),
+            // circuit breaker (5 failures → 30 s open), and a per-request timeout.
+            services.AddHttpClient("notification")
+                .AddStandardResilienceHandler();
 
             // TicketmasterApiKeyHandler injects the API key as a header so it never
             // appears in the URL (and therefore never in access logs or proxy logs).
             services.AddTransient<TicketmasterApiKeyHandler>();
             services.AddHttpClient("ticketmaster")
-                .AddHttpMessageHandler<TicketmasterApiKeyHandler>();
+                .AddHttpMessageHandler<TicketmasterApiKeyHandler>()
+                .AddStandardResilienceHandler();
 
             return services;
         }
@@ -175,23 +184,36 @@ namespace Admitto.Api.Extensions
             return services;
         }
 
+        public static IServiceCollection AddResponseCompressionDefaults(this IServiceCollection services)
+        {
+            services.AddResponseCompression(options => options.EnableForHttps = true);
+            return services;
+        }
+
+        public static IServiceCollection AddOutputCacheDefaults(this IServiceCollection services)
+        {
+            services.AddOutputCache();
+            return services;
+        }
+
         /// <summary>
         /// Rate-limits auth endpoints that run BCrypt or send emails.
         /// 10 requests per IP per minute is generous for legitimate use and blocks brute-force.
+        /// State is stored in Redis so the limit holds across all instances (horizontal scaling).
         /// </summary>
         public static IServiceCollection AddAuthRateLimiting(this IServiceCollection services)
         {
             services.AddRateLimiter(options =>
             {
                 options.AddPolicy("auth", httpContext =>
-                    RateLimitPartition.GetFixedWindowLimiter(
+                    RedisRateLimitPartition.GetFixedWindowRateLimiter(
                         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                        factory: _ => new FixedWindowRateLimiterOptions
+                        factory: _ => new RedisFixedWindowRateLimiterOptions
                         {
                             PermitLimit = 10,
                             Window = TimeSpan.FromMinutes(1),
-                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                            QueueLimit = 0
+                            ConnectionMultiplexerFactory = () =>
+                                httpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>()
                         }));
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

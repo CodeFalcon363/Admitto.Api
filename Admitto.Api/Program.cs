@@ -36,6 +36,8 @@ try
     builder.Services.AddJwtAuthentication(builder.Configuration);
     builder.Services.AddMappings();
     builder.Services.AddAuthRateLimiting();
+    builder.Services.AddResponseCompressionDefaults();
+    builder.Services.AddOutputCacheDefaults();
     builder.Services.AddAppHealthChecks(builder.Configuration);
 
     var app = builder.Build();
@@ -48,9 +50,11 @@ try
         app.MapScalarApiReference();
     }
 
+    app.UseResponseCompression();
     app.UseExceptionHandler();
     app.UseHttpsRedirection();
     app.UseSerilogRequestLogging();
+    app.UseOutputCache();
     app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
