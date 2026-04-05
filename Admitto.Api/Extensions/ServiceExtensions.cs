@@ -7,6 +7,7 @@ using Admitto.Infrastructure.Mappings;
 using Admitto.Infrastructure.Repositories;
 using Admitto.Infrastructure.Services;
 using Amazon.S3;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -181,6 +182,38 @@ namespace Admitto.Api.Extensions
         public static IServiceCollection AddMappings(this IServiceCollection services)
         {
             services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+            return services;
+        }
+
+        /// <summary>
+        /// Allows any origin, method, and header.
+        /// Network-level controls (WAF, API gateway) handle origin restrictions in production.
+        /// </summary>
+        public static IServiceCollection AddCorsDefaults(this IServiceCollection services)
+        {
+            services.AddCors(options =>
+                options.AddPolicy("AllowAll", policy =>
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()));
+
+            return services;
+        }
+
+        /// <summary>
+        /// URL-segment versioning: /api/v1/events, /api/v2/events.
+        /// Default version is 1.0 so existing unversioned routes keep working during migration.
+        /// </summary>
+        public static IServiceCollection AddApiVersioningDefaults(this IServiceCollection services)
+        {
+            services.AddApiVersioning(options =>
+            {
+                options.DefaultApiVersion = new ApiVersion(1, 0);
+                options.AssumeDefaultVersionWhenUnspecified = true;
+                options.ReportApiVersions = true;
+                options.ApiVersionReader = new UrlSegmentApiVersionReader();
+            });
+
             return services;
         }
 
