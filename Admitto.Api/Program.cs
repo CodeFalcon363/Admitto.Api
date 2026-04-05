@@ -1,5 +1,6 @@
 using Admitto.Api.Extensions;
 using Admitto.Api.Middleware;
+using Admitto.Infrastructure.Data;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -49,6 +50,7 @@ try
     var app = builder.Build();
 
     await app.ValidateStartupAsync();
+    await DbSeeder.SeedAdminAsync(app.Services);
 
     if (app.Environment.IsDevelopment())
     {

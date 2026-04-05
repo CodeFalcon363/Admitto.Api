@@ -183,6 +183,7 @@ namespace Admitto.Api.Extensions
             services.Configure<S3Settings>(config.GetSection("S3Settings"));
             services.Configure<StorageSettings>(config.GetSection("StorageSettings"));
             services.Configure<RedisSettings>(config.GetSection("RedisSettings"));
+            services.Configure<AdminSeedSettings>(config.GetSection("AdminSeedSettings"));
             return services;
         }
 
