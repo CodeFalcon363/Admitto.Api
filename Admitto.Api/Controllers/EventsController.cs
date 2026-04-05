@@ -38,14 +38,18 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _eventService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
 
         [HttpGet("slug/{slug}")]
         public async Task<IActionResult> GetBySlug(string slug)
         {
             var result = await _eventService.GetBySlugAsync(slug);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result)
+                : NotFound(result);
         }
 
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]
@@ -66,9 +70,11 @@ namespace Admitto.Api.Controllers
                 : Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
 
             var result = await _eventService.UpdateAsync(slug, request, callerUserId);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : NotFound(result);
         }
 
         [Authorize(Roles = Roles.Admin)]
@@ -76,7 +82,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var result = await _eventService.DeleteAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success
+                ? Ok(result) 
+                : NotFound(result);
         }
     }
 }

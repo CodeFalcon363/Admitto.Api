@@ -47,9 +47,11 @@ namespace Admitto.Api.Controllers
                 : Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
 
             var result = await _bookingService.GetByIdAsync(id, callerUserId);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess 
+                    ? Forbid() 
+                    : NotFound(result);
         }
 
         [Authorize(Roles = $"{Roles.Attendee},{Roles.Admin}")]
@@ -70,9 +72,11 @@ namespace Admitto.Api.Controllers
                 : Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
 
             var result = await _bookingService.CancelAsync(id, callerUserId);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : NotFound(result);
         }
     }
 }

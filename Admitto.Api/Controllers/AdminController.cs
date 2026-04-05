@@ -31,7 +31,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> UpdateNotificationRule(int id, [FromBody] UpdateNotificationRuleRequest request)
         {
             var result = await _notificationRuleService.UpdateAsync(id, request);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
     }
 }

@@ -30,7 +30,9 @@ namespace Admitto.Api.Controllers
                 return Forbid();
 
             var result = await _userService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
 
         [HttpPut("profile")]
@@ -38,7 +40,9 @@ namespace Admitto.Api.Controllers
         {
             var userId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var result = await _userService.UpdateProfileAsync(userId, request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
 
         [Authorize(Roles = Roles.Admin)]
@@ -46,7 +50,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> ChangeRole(Guid id, [FromBody] ChangeRoleRequest request)
         {
             var result = await _userService.ChangeRoleAsync(id, request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
     }
 }

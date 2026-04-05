@@ -24,7 +24,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Register([FromBody] RegisterUserRequest request)
         {
             var result = await _authService.RegisterAsync(request);
-            return result.Success ? StatusCode(201, result) : BadRequest(result);
+            return result.Success 
+                ? StatusCode(201, result) 
+                : BadRequest(result);
         }
 
         [HttpPost("login")]
@@ -32,14 +34,18 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var result = await _authService.LoginAsync(request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
 
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
         {
             var result = await _authService.RefreshTokenAsync(request.ExpiredJwt, request.RefreshToken);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
 
         [Authorize]
@@ -47,7 +53,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Revoke([FromBody] string refreshToken)
         {
             var result = await _authService.RevokeTokenAsync(refreshToken);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
 
         [HttpPost("forgot-password")]
@@ -62,7 +70,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
             var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
     }
 

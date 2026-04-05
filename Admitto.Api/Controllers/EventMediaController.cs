@@ -40,9 +40,11 @@ namespace Admitto.Api.Controllers
 
             using var stream = file.OpenReadStream();
             var result = await _eventMediaService.UploadAsync(eventId, stream, file.FileName, type, callerUserId);
-            return result.Success ? StatusCode(201, result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : BadRequest(result);
+            return result.Success 
+                ? StatusCode(201, result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : BadRequest(result);
         }
 
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]

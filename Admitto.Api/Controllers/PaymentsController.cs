@@ -30,9 +30,11 @@ namespace Admitto.Api.Controllers
         {
             var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var result = await _paymentService.InitializeAsync(request, callerUserId);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : BadRequest(result);
         }
 
         [HttpGet("verify/{reference}")]
@@ -41,9 +43,11 @@ namespace Admitto.Api.Controllers
             var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var isAdmin = User.IsInRole(Roles.Admin);
             var result = await _paymentService.VerifyAsync(reference, callerUserId, isAdmin);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : NotFound(result);
         }
 
         [HttpGet("{id:int}")]
@@ -52,9 +56,11 @@ namespace Admitto.Api.Controllers
             var callerUserId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var isAdmin = User.IsInRole(Roles.Admin);
             var result = await _paymentService.GetByIdAsync(id, callerUserId, isAdmin);
-            return result.Success ? Ok(result) : result.Message == ApiMessages.UnauthorizedAccess
-                ? Forbid()
-                : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : result.Message == ApiMessages.UnauthorizedAccess
+                    ? Forbid()
+                    : NotFound(result);
         }
     }
 }

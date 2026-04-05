@@ -35,7 +35,9 @@ namespace Admitto.Api.Controllers
         {
             var userId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var result = await _preferenceService.SetPreferenceAsync(userId, request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
 
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]
@@ -53,7 +55,9 @@ namespace Admitto.Api.Controllers
         {
             var organizerId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var result = await _preferenceService.SetAccountReminderHoursAsync(organizerId, request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result)
+                : BadRequest(result);
         }
 
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]
@@ -62,7 +66,9 @@ namespace Admitto.Api.Controllers
         {
             var organizerId = Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             var result = await _preferenceService.SetEventReminderHoursAsync(organizerId, eventId, request);
-            return result.Success ? Ok(result) : BadRequest(result);
+            return result.Success 
+                ? Ok(result) 
+                : BadRequest(result);
         }
     }
 }

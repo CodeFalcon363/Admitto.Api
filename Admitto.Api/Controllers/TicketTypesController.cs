@@ -32,7 +32,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _ticketTypeService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
 
         [Authorize(Roles = $"{Roles.Admin},{Roles.Organizer}")]
@@ -48,7 +50,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateTicketTypeRequest request)
         {
             var result = await _ticketTypeService.UpdateAsync(id, request);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
 
         [Authorize(Roles = Roles.Admin)]
@@ -56,7 +60,9 @@ namespace Admitto.Api.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var result = await _ticketTypeService.DeleteAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            return result.Success 
+                ? Ok(result) 
+                : NotFound(result);
         }
     }
 }
