@@ -121,13 +121,65 @@ namespace Admitto.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Atomically cancels the booking and restores ticket capacity in one ReadCommitted transaction.
+        /// Uses a conditional UPDATE (WHERE Status = Confirmed) as the concurrency guard — prevents
+        /// two simultaneous cancel requests from restoring capacity twice.
+        /// </summary>
+        public async Task<(bool success, string? error)> CancelTransactionalAsync(int bookingId)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.ReadCommitted);
+
+            try
+            {
+                var now           = DateTime.UtcNow;
+                var canceledStatus  = (int)BookingStatus.Canceled;
+                var confirmedStatus = (int)BookingStatus.Confirmed;
+
+                // Only cancel if currently Confirmed — 0 rows means already canceled or not found.
+                var cancelRows = await _context.Database.ExecuteSqlAsync(
+                    $"UPDATE Bookings SET Status = {canceledStatus}, UpdatedAt = {now} WHERE Id = {bookingId} AND Status = {confirmedStatus}");
+
+                if (cancelRows == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, ApiMessages.BookingAlreadyCanceled);
+                }
+
+                // Restore capacity for every item in this booking.
+                var items = await _context.BookingItems
+                    .Where(i => i.BookingId == bookingId)
+                    .ToListAsync();
+
+                foreach (var item in items)
+                {
+                    await _context.Database.ExecuteSqlAsync(
+                        $"UPDATE TicketTypes SET Capacity = Capacity + {item.Quantity} WHERE Id = {item.TicketTypeId}");
+                }
+
+                await transaction.CommitAsync();
+                return (true, null);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<Booking?> UpdateAsync(Booking booking)
         {
-            booking.UpdatedAt = DateTime.UtcNow;
-            booking.UpdateCount++;
-            _context.Bookings.Update(booking);
+            // Re-fetch with tracking so EF Core only generates UPDATE statements for
+            // columns that actually changed — avoids full-row dirty writes on detached entities.
+            var existing = await _context.Bookings.FindAsync(booking.Id);
+            if (existing == null) return null;
+
+            _context.Entry(existing).CurrentValues.SetValues(booking);
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdateCount++;
             await _context.SaveChangesAsync();
-            return booking;
+            return existing;
         }
 
         public async Task DeleteAsync(Booking booking)

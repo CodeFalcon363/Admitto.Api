@@ -17,6 +17,14 @@ namespace Admitto.Infrastructure.Interfaces.IRepositories
         /// Returns (booking, null) on success, (null, errorMessage) on failure.
         /// </summary>
         Task<(Booking? booking, string? error)> CreateTransactionalAsync(Booking booking, List<BookingLineItem> items);
+
+        /// <summary>
+        /// Atomically sets booking status to Canceled and restores ticket capacity.
+        /// The WHERE Status = Confirmed guard prevents double-cancel from restoring capacity twice.
+        /// Returns (false, error) if booking is already canceled or not found.
+        /// </summary>
+        Task<(bool success, string? error)> CancelTransactionalAsync(int bookingId);
+
         Task<Booking?> UpdateAsync(Booking booking);
         Task DeleteAsync(Booking booking);
     }
