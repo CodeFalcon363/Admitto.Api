@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
+using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 
 namespace Admitto.Infrastructure.Services
@@ -18,14 +19,18 @@ namespace Admitto.Infrastructure.Services
     public class EventService : IEventService
     {
         private readonly IEventRepository _eventRepository;
-        private readonly INotificationService _notificationService;
+        private readonly IOutboxRepository _outbox;
         private readonly IMapper _mapper;
         private readonly ILogger<EventService> _logger;
 
-        public EventService(IEventRepository eventRepository, INotificationService notificationService, IMapper mapper, ILogger<EventService> logger)
+        public EventService(
+            IEventRepository eventRepository,
+            IOutboxRepository outbox,
+            IMapper mapper,
+            ILogger<EventService> logger)
         {
             _eventRepository = eventRepository;
-            _notificationService = notificationService;
+            _outbox = outbox;
             _mapper = mapper;
             _logger = logger;
         }
@@ -102,7 +107,9 @@ namespace Admitto.Infrastructure.Services
             }
 
             _logger.LogInformation("Event created: {EventId} - {Title}", created.Id, created.Title);
-            _ = Task.Run(() => _notificationService.SendEventCreatedAsync(created.Id));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.EventCreated,
+                JsonConvert.SerializeObject(new { Id = created.Id }));
 
             return new ApiResponse<EventResponse>
             {
@@ -137,7 +144,9 @@ namespace Admitto.Infrastructure.Services
 
             var updated = await _eventRepository.UpdateAsync(ApplyUpdate(request, ev));
             _logger.LogInformation("Event updated: {EventId}", updated!.Id);
-            _ = Task.Run(() => _notificationService.SendEventUpdatedAsync(ev.Id));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.EventUpdated,
+                JsonConvert.SerializeObject(new { Id = ev.Id }));
 
             return new ApiResponse<EventResponse>
             {
@@ -164,7 +173,9 @@ namespace Admitto.Infrastructure.Services
             var title = ev.Title;
             await _eventRepository.DeleteAsync(ev);
             _logger.LogInformation("Event deleted: {Title} by organizer {OrganizerId}", title, organizerId);
-            _ = Task.Run(() => _notificationService.SendEventDeletedAsync(organizerId, title));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.EventDeleted,
+                JsonConvert.SerializeObject(new { OrganizerId = organizerId, EventTitle = title }));
 
             return new ApiResponse<bool>
             {

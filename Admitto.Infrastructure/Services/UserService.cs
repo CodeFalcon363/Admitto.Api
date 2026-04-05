@@ -6,20 +6,25 @@ using Admitto.Infrastructure.Interfaces.IRepositories;
 using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Admitto.Infrastructure.Services
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        private readonly INotificationService _notificationService;
+        private readonly IOutboxRepository _outbox;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
 
-        public UserService(IUserRepository userRepository, INotificationService notificationService, IMapper mapper, ILogger<UserService> logger)
+        public UserService(
+            IUserRepository userRepository,
+            IOutboxRepository outbox,
+            IMapper mapper,
+            ILogger<UserService> logger)
         {
             _userRepository = userRepository;
-            _notificationService = notificationService;
+            _outbox = outbox;
             _mapper = mapper;
             _logger = logger;
         }
@@ -54,7 +59,9 @@ namespace Admitto.Infrastructure.Services
             _mapper.Map(request, user);
             await _userRepository.UpdateAsync(user);
             _logger.LogInformation("Profile updated for user {UserId}", userId);
-            _ = Task.Run(() => _notificationService.SendProfileUpdatedAsync(userId));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.ProfileUpdated,
+                JsonConvert.SerializeObject(new { Id = userId }));
 
             return new ApiResponse<UserResponse>
             {
@@ -89,7 +96,9 @@ namespace Admitto.Infrastructure.Services
             _logger.LogInformation("Role changed for user {UserId} to {Role}", userId, request.Role);
 
             if (request.Role == Roles.Organizer)
-                _ = Task.Run(() => _notificationService.SendRoleChangedAsync(userId));
+                await _outbox.EnqueueAsync(
+                    OutboxEventTypes.RoleChanged,
+                    JsonConvert.SerializeObject(new { Id = userId }));
 
             return new ApiResponse<bool>
             {

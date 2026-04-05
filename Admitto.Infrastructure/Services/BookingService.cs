@@ -8,6 +8,7 @@ using Admitto.Infrastructure.Interfaces.IServices;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Admitto.Infrastructure.Services
 {
@@ -15,20 +16,20 @@ namespace Admitto.Infrastructure.Services
     {
         private readonly IBookingRepository _bookingRepository;
         private readonly ITicketTypeRepository _ticketTypeRepository;
-        private readonly INotificationService _notificationService;
+        private readonly IOutboxRepository _outbox;
         private readonly IMapper _mapper;
         private readonly ILogger<BookingService> _logger;
 
         public BookingService(
             IBookingRepository bookingRepository,
             ITicketTypeRepository ticketTypeRepository,
-            INotificationService notificationService,
+            IOutboxRepository outbox,
             IMapper mapper,
             ILogger<BookingService> logger)
         {
             _bookingRepository = bookingRepository;
             _ticketTypeRepository = ticketTypeRepository;
-            _notificationService = notificationService;
+            _outbox = outbox;
             _mapper = mapper;
             _logger = logger;
         }
@@ -147,7 +148,9 @@ namespace Admitto.Infrastructure.Services
             }
 
             _logger.LogInformation("Booking created: {BookingId} for user {UserId}", created.Id, userId);
-            _ = Task.Run(() => _notificationService.SendBookingConfirmationAsync(created.Id));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.BookingConfirmation,
+                JsonConvert.SerializeObject(new { Id = created.Id }));
 
             return new ApiResponse<BookingResponse>
             {
@@ -159,6 +162,7 @@ namespace Admitto.Infrastructure.Services
 
         public async Task<ApiResponse<bool>> CancelAsync(int id, Guid? callerUserId = null)
         {
+            // Ownership check only — no state changes here.
             var booking = await _bookingRepository.GetByIdAsync(id);
             if (booking == null)
             {
@@ -180,10 +184,24 @@ namespace Admitto.Infrastructure.Services
                 };
             }
 
-            booking.Status = BookingStatus.Canceled;
-            await _bookingRepository.UpdateAsync(booking);
+            // Atomically sets status to Canceled and restores ticket capacity in one transaction.
+            // The conditional UPDATE (WHERE Status = Confirmed) prevents double-cancel from
+            // restoring capacity twice if two concurrent requests race past the check above.
+            var (success, error) = await _bookingRepository.CancelTransactionalAsync(id);
+            if (!success)
+            {
+                _logger.LogWarning("Cancel transaction failed for booking {BookingId}: {Reason}", id, error);
+                return new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = error
+                };
+            }
+
             _logger.LogInformation("Booking {BookingId} canceled", id);
-            _ = Task.Run(() => _notificationService.SendCancellationAsync(id));
+            await _outbox.EnqueueAsync(
+                OutboxEventTypes.BookingCancellation,
+                JsonConvert.SerializeObject(new { Id = id }));
 
             return new ApiResponse<bool>
             {
